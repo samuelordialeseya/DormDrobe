@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { useWardrobe } from '../context/WardrobeContext';
 import {
   Category,
   Location,
@@ -23,6 +22,7 @@ import {
   STATUS_COLORS,
 } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
+import { useWardrobe } from '../context/WardrobeContext';
 
 const CATEGORIES: Category[] = ['tops', 'bottoms', 'underwear', 'footwear', 'outerwear', 'accessories'];
 const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
@@ -279,8 +279,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassLight,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xl,

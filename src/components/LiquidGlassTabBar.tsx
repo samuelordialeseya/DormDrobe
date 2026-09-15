@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Radii } from '../theme/theme';
+import { Radii } from '../theme/theme';
 
 type TabDef = {
   name: string;
@@ -93,13 +93,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 64,
     borderRadius: Radii.pill,
-    // Neutral frosted glass — no color tint
     backgroundColor: 'rgba(28,28,30,0.88)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 8,
-    overflow: 'hidden',
-    // Black shadow only, no colored glow
+    // NO overflow:hidden — would clip the activePill on Android
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.55,
@@ -115,23 +113,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
     borderTopLeftRadius: Radii.pill,
     borderTopRightRadius: Radii.pill,
+    // Prevent topHighlight from clipping outside the bar
+    zIndex: 1,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
+    height: 64,
     position: 'relative',
   },
   activePill: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -22 }, { translateY: -21 }],
-    width: 44,
+    // Bar height 64, pill height 42 → top = (64-42)/2 = 11
+    top: 11,
+    // pill width 44, but we center via alignItems on tabItem
+    // Use left/right to center within the flex item
+    left: '10%',
+    right: '10%',
     height: 42,
     borderRadius: 21,
-    // Neutral white tint only
     backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
