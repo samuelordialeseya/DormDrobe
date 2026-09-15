@@ -9,6 +9,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
+import FadeSlideIn from '../components/FadeSlideIn';
+import PressableScale from '../components/PressableScale';
 import {
   ClothingItem,
   Location,
@@ -82,89 +84,111 @@ export default function FitGeneratorScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Fit Generator</Text>
-            <Text style={styles.subtitle}>Let DormDrobe dress you today</Text>
-          </View>
+          <FadeSlideIn delay={0} fromY={-10}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Fit Generator</Text>
+              <Text style={styles.subtitle}>Let DormDrobe dress you today</Text>
+            </View>
+          </FadeSlideIn>
 
           {/* Mode selector */}
-          <View style={styles.modeRow}>
-            {(['uniform', 'casual'] as FitMode[]).map((m) => {
-              const active = m === mode;
-              return (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.modeCard, active && styles.modeCardActive]}
-                  onPress={() => { setMode(m); setOutfit(null); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.modeEmoji}>{m === 'uniform' ? '🏫' : '🧢'}</Text>
-                  <Text style={[styles.modeTitle, active && styles.modeTitleActive]}>
-                    {m === 'uniform' ? 'Uniform' : 'Casual'}
-                  </Text>
-                  <Text style={styles.modeDesc}>
-                    {m === 'uniform' ? 'White tee + bottoms' : 'Any top + bottom'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <FadeSlideIn delay={60} fromY={12}>
+            <View style={styles.modeRow}>
+              {(['uniform', 'casual'] as FitMode[]).map((m) => {
+                const active = m === mode;
+                return (
+                  <PressableScale
+                    key={m}
+                    scaleTo={0.95}
+                    onPress={() => { setMode(m); setOutfit(null); }}
+                    style={[styles.modeCard, active && styles.modeCardActive]}
+                  >
+                    <Text style={styles.modeEmoji}>{m === 'uniform' ? '🏫' : '🧢'}</Text>
+                    <Text style={[styles.modeTitle, active && styles.modeTitleActive]}>
+                      {m === 'uniform' ? 'Uniform' : 'Casual'}
+                    </Text>
+                    <Text style={styles.modeDesc}>
+                      {m === 'uniform' ? 'White tee + bottoms' : 'Any top + bottom'}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </FadeSlideIn>
 
           {/* Location */}
-          <Text style={styles.sectionLabel}>CLOTHES AT</Text>
-          <View style={styles.locRow}>
-            {LOCATIONS.map((loc) => {
-              const active = loc === currentLocation;
-              return (
-                <TouchableOpacity
-                  key={loc}
-                  style={[styles.locChip, active && styles.locChipActive]}
-                  onPress={() => { setCurrentLocation(loc); setOutfit(null); }}
-                  activeOpacity={0.6}
-                >
-                  <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
-                  <Text style={[styles.locText, active && styles.locTextActive]}>
-                    {LOC_SHORT[loc]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <FadeSlideIn delay={100} fromY={10}>
+            <Text style={styles.sectionLabel}>CLOTHES AT</Text>
+            <View style={styles.locRow}>
+              {LOCATIONS.map((loc) => {
+                const active = loc === currentLocation;
+                return (
+                  <PressableScale
+                    key={loc}
+                    scaleTo={0.94}
+                    onPress={() => { setCurrentLocation(loc); setOutfit(null); }}
+                    style={[styles.locChip, active && styles.locChipActive]}
+                  >
+                    <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
+                    <Text style={[styles.locText, active && styles.locTextActive]}>
+                      {LOC_SHORT[loc]}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </FadeSlideIn>
 
-          {/* Generate button — accent only on primary CTA */}
-          <TouchableOpacity style={styles.generateBtn} onPress={generateOutfit} activeOpacity={0.8}>
-            <View style={styles.btnSpecular} />
-            <Text style={styles.generateBtnText}>Generate Outfit</Text>
-          </TouchableOpacity>
+          {/* Generate button */}
+          <FadeSlideIn delay={140} fromY={10}>
+            <PressableScale scaleTo={0.97} onPress={generateOutfit}>
+              <View style={styles.generateBtn}>
+                <View style={styles.btnSpecular} />
+                <Text style={styles.generateBtnText}>Generate Outfit</Text>
+              </View>
+            </PressableScale>
+          </FadeSlideIn>
 
           {/* Error */}
           {error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
+            <FadeSlideIn delay={0} fromY={6}>
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            </FadeSlideIn>
           )}
 
           {/* Result */}
           {outfit && (
             <View style={styles.outfitResult}>
-              <Text style={styles.resultTitle}>Today's Fit</Text>
+              <FadeSlideIn delay={0} fromY={8}>
+                <Text style={styles.resultTitle}>Today's Fit</Text>
+              </FadeSlideIn>
 
-              <Text style={styles.slotLabel}>TOP</Text>
-              <ClothingCard item={outfit.top} />
+              <FadeSlideIn delay={40} fromY={10}>
+                <Text style={styles.slotLabel}>TOP</Text>
+                <ClothingCard item={outfit.top} delay={0} />
+              </FadeSlideIn>
 
-              <Text style={styles.slotLabel}>BOTTOM</Text>
-              <ClothingCard item={outfit.bottom} />
+              <FadeSlideIn delay={80} fromY={10}>
+                <Text style={styles.slotLabel}>BOTTOM</Text>
+                <ClothingCard item={outfit.bottom} delay={0} />
+              </FadeSlideIn>
 
               {outfit.shoes && (
-                <>
+                <FadeSlideIn delay={120} fromY={10}>
                   <Text style={styles.slotLabel}>SHOES</Text>
-                  <ClothingCard item={outfit.shoes} />
-                </>
+                  <ClothingCard item={outfit.shoes} delay={0} />
+                </FadeSlideIn>
               )}
 
-              <TouchableOpacity style={styles.reshuffleBtn} onPress={generateOutfit} activeOpacity={0.7}>
-                <Text style={styles.reshuffleBtnText}>↺  Reshuffle</Text>
-              </TouchableOpacity>
+              <FadeSlideIn delay={160} fromY={10}>
+                <PressableScale scaleTo={0.96} onPress={generateOutfit}>
+                  <View style={styles.reshuffleBtn}>
+                    <Text style={styles.reshuffleBtnText}>↺  Reshuffle</Text>
+                  </View>
+                </PressableScale>
+              </FadeSlideIn>
             </View>
           )}
         </ScrollView>
@@ -174,33 +198,16 @@ export default function FitGeneratorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bgBase,
-  },
+  container: { flex: 1, backgroundColor: Colors.bgBase },
   safe: { flex: 1 },
-  scroll: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: 120,
-  },
+  scroll: { paddingHorizontal: Spacing.xl, paddingBottom: 120 },
   header: {
     paddingTop: Spacing.md,
     marginBottom: Spacing.xl,
   },
-  title: {
-    color: Colors.textPrimary,
-    ...Typography.title1,
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: Colors.textTertiary,
-    fontSize: 14,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
+  title: { color: Colors.textPrimary, ...Typography.title1, marginBottom: 4 },
+  subtitle: { color: Colors.textTertiary, fontSize: 14 },
+  modeRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.xl },
   modeCard: {
     flex: 1,
     backgroundColor: Colors.glassLight,
@@ -211,28 +218,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderGlass,
   },
   modeCardActive: {
-    // Active = brighter glass, white border
     backgroundColor: Colors.glassBright,
     borderColor: Colors.borderGlassBright,
   },
-  modeEmoji: {
-    fontSize: 30,
-    marginBottom: 6,
-  },
-  modeTitle: {
-    color: Colors.textTertiary,
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 3,
-  },
-  modeTitleActive: {
-    color: Colors.textPrimary,
-  },
-  modeDesc: {
-    color: Colors.textTertiary,
-    fontSize: 11,
-    textAlign: 'center',
-  },
+  modeEmoji: { fontSize: 30, marginBottom: 6 },
+  modeTitle: { color: Colors.textTertiary, fontSize: 15, fontWeight: '600', marginBottom: 3 },
+  modeTitleActive: { color: Colors.textPrimary },
+  modeDesc: { color: Colors.textTertiary, fontSize: 11, textAlign: 'center' },
   sectionLabel: {
     color: Colors.textTertiary,
     fontSize: 10,
@@ -240,11 +232,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: 8,
   },
-  locRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
+  locRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xl },
   locChip: {
     flex: 1,
     flexDirection: 'row',
@@ -257,20 +245,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  locChipActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
-  },
+  locChipActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
   locIcon: { fontSize: 13 },
-  locText: {
-    color: Colors.textTertiary,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  locTextActive: {
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
+  locText: { color: Colors.textTertiary, fontSize: 12, fontWeight: '500' },
+  locTextActive: { color: Colors.textPrimary, fontWeight: '600' },
   generateBtn: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -280,7 +258,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     position: 'relative',
     overflow: 'hidden',
-    // Neutral black shadow — no colored glow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
@@ -289,18 +266,11 @@ const styles = StyleSheet.create({
   },
   btnSpecular: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
-  generateBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
+  generateBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
   errorBox: {
     backgroundColor: 'rgba(255,69,58,0.10)',
     borderRadius: Radii.lg,
@@ -309,17 +279,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,69,58,0.30)',
   },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 13,
-    lineHeight: 19,
-  },
+  errorText: { color: '#FF6B6B', fontSize: 13, lineHeight: 19 },
   outfitResult: { marginTop: 4 },
-  resultTitle: {
-    color: Colors.textPrimary,
-    ...Typography.title2,
-    marginBottom: Spacing.lg,
-  },
+  resultTitle: { color: Colors.textPrimary, ...Typography.title2, marginBottom: Spacing.lg },
   slotLabel: {
     color: Colors.textTertiary,
     fontSize: 10,
@@ -337,9 +299,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  reshuffleBtnText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  reshuffleBtnText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
 });

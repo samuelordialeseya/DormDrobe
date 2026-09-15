@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing } from '../theme/theme';
+import PressableScale from './PressableScale';
 
 const LOCATIONS: (Location | null)[] = [null, 'calamba_home', 'batangas_dorm', 'in_transit_bag'];
 
@@ -29,17 +30,18 @@ export default function LocationFilter({ selected, onSelect }: Props) {
         const label = loc ? LOCATION_LABELS[loc].replace(/^[^\s]+\s/, '') : 'All';
 
         return (
-          <TouchableOpacity
+          <PressableScale
             key={String(loc)}
             onPress={() => onSelect(loc)}
-            activeOpacity={0.6}
-            style={[styles.chip, active && styles.chipActive]}
+            scaleTo={0.93}
           >
-            <Text style={styles.chipIcon}>{icon}</Text>
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>
-              {label}
-            </Text>
-          </TouchableOpacity>
+            <View style={[styles.chip, active && styles.chipActive]}>
+              <Text style={styles.chipIcon}>{icon}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {label}
+              </Text>
+            </View>
+          </PressableScale>
         );
       })}
     </ScrollView>
@@ -64,7 +66,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderGlass,
     gap: 5,
   },
-  // Active = slightly brighter glass, white text — no color
   chipActive: {
     backgroundColor: Colors.glassBright,
     borderColor: Colors.borderGlassBright,

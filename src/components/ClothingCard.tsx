@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { ClothingItem, CATEGORY_ICONS, LOCATION_LABELS, STATUS_COLORS } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
+import PressableScale from './PressableScale';
 import { Colors, Radii, Spacing } from '../theme/theme';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  /** Stagger delay for list entrance animation */
+  delay?: number;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -41,63 +44,112 @@ export default function ClothingCard({
   selectable = false,
   selected = false,
   onToggleSelect,
+  delay = 0,
 }: Props) {
   const emoji = CATEGORY_ICONS[item.category];
   const accentColor = STATUS_COLORS[item.status];
 
+  // Entrance animation
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 280,
+        delay,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        delay,
+        tension: 260,
+        friction: 26,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  // Selection pulse animation
+  const selectAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(selectAnim, {
+      toValue: selected ? 1 : 0,
+      useNativeDriver: true,
+      tension: 280,
+      friction: 22,
+    }).start();
+  }, [selected]);
+
+  const checkScale = selectAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.5, 1],
+  });
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.72}
-      onPress={selectable ? onToggleSelect : onPress}
-      style={[styles.card, selected && styles.selectedCard]}
-    >
-      {/* Specular top edge */}
-      <View style={styles.specular} />
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <PressableScale
+        onPress={selectable ? onToggleSelect : onPress}
+        scaleTo={0.97}
+        style={[styles.card, selected && styles.selectedCard]}
+      >
+        {/* Specular top edge */}
+        <View style={styles.specular} />
 
-      {/* Functional status accent — left edge, status color only */}
-      <View style={[styles.accentBar, { backgroundColor: accentColor + '70' }]} />
+        {/* Status accent bar */}
+        <View style={[styles.accentBar, { backgroundColor: accentColor + '70' }]} />
 
-      {/* Thumbnail */}
-      <View style={[styles.thumb, selected && styles.thumbSelected]}>
-        <Text style={styles.emoji}>{emoji}</Text>
-        <View
-          style={[
-            styles.colorSwatch,
-            { backgroundColor: resolveColor(item.color) },
-          ]}
-        />
-        {selectable && (
-          <View style={[styles.checkbox, selected && styles.checkboxActive]}>
-            {selected && <Text style={styles.checkmark}>✓</Text>}
-          </View>
-        )}
-      </View>
-
-      {/* Info */}
-      <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {item.name}
-          </Text>
-          {item.isUniformWhiteTee && (
-            <View style={styles.uniformBadge}>
-              <Text style={styles.uniformText}>UNIFORM</Text>
-            </View>
+        {/* Thumbnail */}
+        <View style={[styles.thumb, selected && styles.thumbSelected]}>
+          <Text style={styles.emoji}>{emoji}</Text>
+          <View
+            style={[
+              styles.colorSwatch,
+              { backgroundColor: resolveColor(item.color) },
+            ]}
+          />
+          {selectable && (
+            <Animated.View
+              style={[
+                styles.checkbox,
+                selected && styles.checkboxActive,
+                { transform: [{ scale: checkScale }] },
+              ]}
+            >
+              {selected && (
+                <Animated.Text style={styles.checkmark}>✓</Animated.Text>
+              )}
+            </Animated.View>
           )}
         </View>
 
-        {item.brand && (
-          <Text style={styles.brand} numberOfLines={1}>
-            {item.brand}
-          </Text>
-        )}
+        {/* Info */}
+        <View style={styles.info}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {item.isUniformWhiteTee && (
+              <View style={styles.uniformBadge}>
+                <Text style={styles.uniformText}>UNIFORM</Text>
+              </View>
+            )}
+          </View>
 
-        <View style={styles.footer}>
-          <StatusBadge status={item.status} size="sm" />
-          <Text style={styles.location}>{LOCATION_LABELS[item.location]}</Text>
+          {item.brand && (
+            <Text style={styles.brand} numberOfLines={1}>
+              {item.brand}
+            </Text>
+          )}
+
+          <View style={styles.footer}>
+            <StatusBadge status={item.status} size="sm" />
+            <Text style={styles.location}>{LOCATION_LABELS[item.location]}</Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </PressableScale>
+    </Animated.View>
   );
 }
 
@@ -119,7 +171,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   selectedCard: {
-    // Selected = brighter glass, white border — no color
     backgroundColor: Colors.glassBright,
     borderColor: Colors.borderGlassBright,
   },

@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
+import FadeSlideIn from '../components/FadeSlideIn';
+import PressableScale from '../components/PressableScale';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
@@ -62,14 +64,10 @@ export default function BatchActionScreen() {
       Alert.alert('Nothing to mark', `No worn items at ${LOCATION_LABELS[selectedLocation]}.`);
       return;
     }
-    Alert.alert(
-      'Laundry Day',
-      `Mark ${wornAtLocation.length} worn items as "In Laundry"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Mark All', onPress: () => batchSetStatus({ location: selectedLocation, status: 'worn' }, 'in_laundry') },
-      ],
-    );
+    Alert.alert('Laundry Day', `Mark ${wornAtLocation.length} worn items as "In Laundry"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Mark All', onPress: () => batchSetStatus({ location: selectedLocation, status: 'worn' }, 'in_laundry') },
+    ]);
   };
 
   const handleMarkLaundryAsClean = () => {
@@ -77,14 +75,10 @@ export default function BatchActionScreen() {
       Alert.alert('Nothing to mark', `No laundry items at ${LOCATION_LABELS[selectedLocation]}.`);
       return;
     }
-    Alert.alert(
-      'Laundry Done',
-      `Mark ${laundryAtLocation.length} items as "Clean"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'All Clean', onPress: () => batchSetStatus({ location: selectedLocation, status: 'in_laundry' }, 'clean') },
-      ],
-    );
+    Alert.alert('Laundry Done', `Mark ${laundryAtLocation.length} items as "Clean"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'All Clean', onPress: () => batchSetStatus({ location: selectedLocation, status: 'in_laundry' }, 'clean') },
+    ]);
   };
 
   const handlePack = () => {
@@ -92,148 +86,159 @@ export default function BatchActionScreen() {
       Alert.alert('Select Items', 'Tap items below to select what to pack.');
       return;
     }
-    Alert.alert(
-      'Pack Items',
-      `Move ${selectedIds.size} items to ${LOCATION_LABELS[packTarget]}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Pack',
-          onPress: () => {
-            batchMoveItems(Array.from(selectedIds), packTarget);
-            setSelectedIds(new Set());
-          },
+    Alert.alert('Pack Items', `Move ${selectedIds.size} items to ${LOCATION_LABELS[packTarget]}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Pack',
+        onPress: () => {
+          batchMoveItems(Array.from(selectedIds), packTarget);
+          setSelectedIds(new Set());
         },
-      ],
-    );
+      },
+    ]);
   };
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Quick Actions</Text>
-          <Text style={styles.subtitle}>Laundry & packing assistant</Text>
-        </View>
+        <FadeSlideIn delay={0} fromY={-10}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Quick Actions</Text>
+            <Text style={styles.subtitle}>Laundry & packing assistant</Text>
+          </View>
+        </FadeSlideIn>
 
         {/* Mode toggle */}
-        <View style={styles.modeRow}>
-          {(['laundry', 'pack'] as Mode[]).map((m) => {
-            const active = m === mode;
-            return (
-              <TouchableOpacity
-                key={m}
-                style={[styles.modeBtn, active && styles.modeBtnActive]}
-                onPress={() => setMode(m)}
-                activeOpacity={0.6}
-              >
-                <Text style={styles.modeBtnIcon}>{m === 'laundry' ? '🧺' : '🎒'}</Text>
-                <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
-                  {m === 'laundry' ? 'Laundry Day' : 'Pack / Move'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <FadeSlideIn delay={60} fromY={10}>
+          <View style={styles.modeRow}>
+            {(['laundry', 'pack'] as Mode[]).map((m) => {
+              const active = m === mode;
+              return (
+                <PressableScale
+                  key={m}
+                  scaleTo={0.95}
+                  onPress={() => setMode(m)}
+                  style={[styles.modeBtn, active && styles.modeBtnActive]}
+                >
+                  <Text style={styles.modeBtnIcon}>{m === 'laundry' ? '🧺' : '🎒'}</Text>
+                  <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
+                    {m === 'laundry' ? 'Laundry Day' : 'Pack / Move'}
+                  </Text>
+                </PressableScale>
+              );
+            })}
+          </View>
+        </FadeSlideIn>
 
         {/* Location */}
-        <Text style={styles.sectionLabel}>AT LOCATION</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.locRow}>
-          {LOCATIONS.map((loc) => {
-            const active = loc === selectedLocation;
-            return (
-              <TouchableOpacity
-                key={loc}
-                style={[styles.locChip, active && styles.locChipActive]}
-                onPress={() => { setSelectedLocation(loc); setSelectedIds(new Set()); }}
-                activeOpacity={0.6}
-              >
-                <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
-                <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <FadeSlideIn delay={100} fromY={10}>
+          <Text style={styles.sectionLabel}>AT LOCATION</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.locRow}>
+            {LOCATIONS.map((loc) => {
+              const active = loc === selectedLocation;
+              return (
+                <PressableScale
+                  key={loc}
+                  scaleTo={0.93}
+                  onPress={() => { setSelectedLocation(loc); setSelectedIds(new Set()); }}
+                  style={[styles.locChip, active && styles.locChipActive]}
+                >
+                  <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
+                  <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
+                </PressableScale>
+              );
+            })}
+          </ScrollView>
+        </FadeSlideIn>
 
         {/* Content */}
         {mode === 'laundry' ? (
           <View style={styles.actionArea}>
-            <TouchableOpacity style={styles.actionCard} onPress={handleMarkAllWornAsLaundry} activeOpacity={0.72}>
-              <View style={styles.specular} />
-              <View style={[styles.actionIconBg, { backgroundColor: Colors.statusWorn + '18', borderColor: Colors.statusWorn + '40' }]}>
-                <Text style={styles.actionEmoji}>🧺</Text>
-              </View>
-              <View style={styles.actionCardBody}>
-                <Text style={styles.actionTitle}>Mark Worn → In Laundry</Text>
-                <Text style={styles.actionDesc}>
-                  {wornAtLocation.length} worn at {LOC_SHORT[selectedLocation]}
-                </Text>
-              </View>
-              <Text style={styles.actionArrow}>›</Text>
-            </TouchableOpacity>
+            <FadeSlideIn delay={140} fromY={12}>
+              <PressableScale scaleTo={0.97} onPress={handleMarkAllWornAsLaundry}>
+                <View style={styles.actionCard}>
+                  <View style={styles.specular} />
+                  <View style={[styles.actionIconBg, { backgroundColor: Colors.statusWorn + '18', borderColor: Colors.statusWorn + '40' }]}>
+                    <Text style={styles.actionEmoji}>🧺</Text>
+                  </View>
+                  <View style={styles.actionCardBody}>
+                    <Text style={styles.actionTitle}>Mark Worn → In Laundry</Text>
+                    <Text style={styles.actionDesc}>{wornAtLocation.length} worn at {LOC_SHORT[selectedLocation]}</Text>
+                  </View>
+                  <Text style={styles.actionArrow}>›</Text>
+                </View>
+              </PressableScale>
+            </FadeSlideIn>
 
-            <TouchableOpacity style={styles.actionCard} onPress={handleMarkLaundryAsClean} activeOpacity={0.72}>
-              <View style={styles.specular} />
-              <View style={[styles.actionIconBg, { backgroundColor: Colors.statusClean + '18', borderColor: Colors.statusClean + '40' }]}>
-                <Text style={styles.actionEmoji}>✨</Text>
-              </View>
-              <View style={styles.actionCardBody}>
-                <Text style={styles.actionTitle}>Mark Laundry → Clean</Text>
-                <Text style={styles.actionDesc}>
-                  {laundryAtLocation.length} in-laundry at {LOC_SHORT[selectedLocation]}
-                </Text>
-              </View>
-              <Text style={styles.actionArrow}>›</Text>
-            </TouchableOpacity>
+            <FadeSlideIn delay={180} fromY={12}>
+              <PressableScale scaleTo={0.97} onPress={handleMarkLaundryAsClean}>
+                <View style={styles.actionCard}>
+                  <View style={styles.specular} />
+                  <View style={[styles.actionIconBg, { backgroundColor: Colors.statusClean + '18', borderColor: Colors.statusClean + '40' }]}>
+                    <Text style={styles.actionEmoji}>✨</Text>
+                  </View>
+                  <View style={styles.actionCardBody}>
+                    <Text style={styles.actionTitle}>Mark Laundry → Clean</Text>
+                    <Text style={styles.actionDesc}>{laundryAtLocation.length} in-laundry at {LOC_SHORT[selectedLocation]}</Text>
+                  </View>
+                  <Text style={styles.actionArrow}>›</Text>
+                </View>
+              </PressableScale>
+            </FadeSlideIn>
           </View>
         ) : (
           <View style={styles.packArea}>
-            <Text style={[styles.sectionLabel, { paddingHorizontal: Spacing.xl }]}>MOVE TO</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.locRow}>
-              {LOCATIONS.filter((l) => l !== selectedLocation).map((loc) => {
-                const active = loc === packTarget;
-                return (
-                  <TouchableOpacity
-                    key={loc}
-                    style={[styles.locChip, active && styles.locChipActive]}
-                    onPress={() => setPackTarget(loc)}
-                    activeOpacity={0.6}
-                  >
-                    <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
-                    <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <FadeSlideIn delay={120} fromY={8}>
+              <Text style={[styles.sectionLabel, { paddingHorizontal: Spacing.xl }]}>MOVE TO</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.locRow}>
+                {LOCATIONS.filter((l) => l !== selectedLocation).map((loc) => {
+                  const active = loc === packTarget;
+                  return (
+                    <PressableScale
+                      key={loc}
+                      scaleTo={0.93}
+                      onPress={() => setPackTarget(loc)}
+                      style={[styles.locChip, active && styles.locChipActive]}
+                    >
+                      <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
+                      <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
+                    </PressableScale>
+                  );
+                })}
+              </ScrollView>
+            </FadeSlideIn>
 
             <FlatList
               data={packableItems}
               keyExtractor={(it) => it.id}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <ClothingCard
                   item={item}
                   selectable
                   selected={selectedIds.has(item.id)}
                   onToggleSelect={() => toggleSelect(item.id)}
+                  delay={Math.min(index * 40, 280)}
                 />
               )}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>
-                  No clean items at {LOC_SHORT[selectedLocation]}
-                </Text>
+                <Text style={styles.emptyText}>No clean items at {LOC_SHORT[selectedLocation]}</Text>
               }
             />
 
             {selectedIds.size > 0 && (
-              <TouchableOpacity style={styles.packBtn} onPress={handlePack} activeOpacity={0.85}>
-                <View style={styles.btnSpecular} />
-                <Text style={styles.packBtnText}>
-                  Pack {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}
-                </Text>
-              </TouchableOpacity>
+              <FadeSlideIn delay={0} fromY={20}>
+                <PressableScale scaleTo={0.97} onPress={handlePack} style={styles.packBtnWrap}>
+                  <View style={styles.packBtn}>
+                    <View style={styles.btnSpecular} />
+                    <Text style={styles.packBtnText}>
+                      Pack {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}
+                    </Text>
+                  </View>
+                </PressableScale>
+              </FadeSlideIn>
             )}
           </View>
         )}
@@ -245,26 +250,10 @@ export default function BatchActionScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgBase },
   safe: { flex: 1 },
-  header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  title: {
-    color: Colors.textPrimary,
-    ...Typography.title1,
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: Colors.textTertiary,
-    fontSize: 14,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
+  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, marginBottom: Spacing.md },
+  title: { color: Colors.textPrimary, ...Typography.title1, marginBottom: 4 },
+  subtitle: { color: Colors.textTertiary, fontSize: 14 },
+  modeRow: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   modeBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -277,19 +266,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  modeBtnActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
-  },
+  modeBtnActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
   modeBtnIcon: { fontSize: 16 },
-  modeBtnText: {
-    color: Colors.textTertiary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modeBtnTextActive: {
-    color: Colors.textPrimary,
-  },
+  modeBtnText: { color: Colors.textTertiary, fontSize: 14, fontWeight: '600' },
+  modeBtnTextActive: { color: Colors.textPrimary },
   sectionLabel: {
     color: Colors.textTertiary,
     fontSize: 10,
@@ -299,12 +279,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 4,
   },
-  locRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
+  locRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
   locChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -316,24 +291,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  locChipActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
-  },
+  locChipActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
   locIcon: { fontSize: 13 },
-  locText: {
-    color: Colors.textTertiary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  locTextActive: {
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  actionArea: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.md,
-  },
+  locText: { color: Colors.textTertiary, fontSize: 13, fontWeight: '500' },
+  locTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  actionArea: { paddingHorizontal: Spacing.lg, gap: Spacing.md },
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -353,54 +315,26 @@ const styles = StyleSheet.create({
   },
   specular: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
-  actionIconBg: {
-    width: 52,
-    height: 52,
-    borderRadius: Radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
+  actionIconBg: { width: 52, height: 52, borderRadius: Radii.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   actionEmoji: { fontSize: 24 },
   actionCardBody: { flex: 1 },
-  actionTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-    marginBottom: 3,
-  },
-  actionDesc: {
-    color: Colors.textTertiary,
-    fontSize: 12,
-  },
-  actionArrow: {
-    color: Colors.textTertiary,
-    fontSize: 22,
-    fontWeight: '300',
-  },
+  actionTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', letterSpacing: -0.2, marginBottom: 3 },
+  actionDesc: { color: Colors.textTertiary, fontSize: 12 },
+  actionArrow: { color: Colors.textTertiary, fontSize: 22, fontWeight: '300' },
   packArea: { flex: 1 },
-  list: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: 120,
-  },
-  emptyText: {
-    color: Colors.textTertiary,
-    textAlign: 'center',
-    marginTop: 40,
-    fontSize: 14,
-  },
-  packBtn: {
+  list: { paddingHorizontal: Spacing.lg, paddingBottom: 120 },
+  emptyText: { color: Colors.textTertiary, textAlign: 'center', marginTop: 40, fontSize: 14 },
+  packBtnWrap: {
     position: 'absolute',
     bottom: 30,
     left: Spacing.xl,
     right: Spacing.xl,
+  },
+  packBtn: {
     backgroundColor: Colors.accent,
     borderRadius: Radii.xl,
     paddingVertical: 18,
@@ -414,16 +348,9 @@ const styles = StyleSheet.create({
   },
   btnSpecular: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
-  packBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
+  packBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
 });

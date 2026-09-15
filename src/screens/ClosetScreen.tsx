@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import LocationFilter from '../components/LocationFilter';
 import ClothingCard from '../components/ClothingCard';
+import FadeSlideIn from '../components/FadeSlideIn';
 import { Status, STATUS_LABELS, STATUS_COLORS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
@@ -46,94 +47,107 @@ export default function ClosetScreen() {
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>My Closet</Text>
-            <Text style={styles.subtitle}>{filteredItems.length} items</Text>
+        <FadeSlideIn delay={0} fromY={-10}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>My Closet</Text>
+              <Text style={styles.subtitle}>{filteredItems.length} items</Text>
+            </View>
+            <View style={styles.headerStatBadge}>
+              <Text style={styles.headerStatNum}>{filteredItems.length}</Text>
+            </View>
           </View>
-          <View style={styles.headerStatBadge}>
-            <Text style={styles.headerStatNum}>{filteredItems.length}</Text>
-          </View>
-        </View>
+        </FadeSlideIn>
 
-        {/* Quick stats strip */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsStrip}>
-          <View style={[styles.statChip, { borderColor: Colors.statusClean + '60' }]}>
-            <View style={[styles.statDot, { backgroundColor: Colors.statusClean }]} />
-            <Text style={[styles.statNum, { color: Colors.statusClean }]}>{cleanCount}</Text>
-            <Text style={styles.statLabel}>Clean</Text>
-          </View>
-          <View style={[styles.statChip, { borderColor: Colors.statusWorn + '60' }]}>
-            <View style={[styles.statDot, { backgroundColor: Colors.statusWorn }]} />
-            <Text style={[styles.statNum, { color: Colors.statusWorn }]}>{wornCount}</Text>
-            <Text style={styles.statLabel}>Worn</Text>
-          </View>
-          <View style={styles.statChip}>
-            <View style={[styles.statDot, { backgroundColor: Colors.textTertiary }]} />
-            <Text style={[styles.statNum, { color: Colors.textSecondary }]}>{items.length}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
-        </ScrollView>
+        {/* Stats strip */}
+        <FadeSlideIn delay={60} fromY={10}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsStrip}>
+            <View style={[styles.statChip, { borderColor: Colors.statusClean + '60' }]}>
+              <View style={[styles.statDot, { backgroundColor: Colors.statusClean }]} />
+              <Text style={[styles.statNum, { color: Colors.statusClean }]}>{cleanCount}</Text>
+              <Text style={styles.statLabel}>Clean</Text>
+            </View>
+            <View style={[styles.statChip, { borderColor: Colors.statusWorn + '60' }]}>
+              <View style={[styles.statDot, { backgroundColor: Colors.statusWorn }]} />
+              <Text style={[styles.statNum, { color: Colors.statusWorn }]}>{wornCount}</Text>
+              <Text style={styles.statLabel}>Worn</Text>
+            </View>
+            <View style={styles.statChip}>
+              <View style={[styles.statDot, { backgroundColor: Colors.textTertiary }]} />
+              <Text style={[styles.statNum, { color: Colors.textSecondary }]}>{items.length}</Text>
+              <Text style={styles.statLabel}>Total</Text>
+            </View>
+          </ScrollView>
+        </FadeSlideIn>
 
         {/* Search */}
-        <View style={styles.searchWrap}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name, brand, color…"
-            placeholderTextColor={Colors.textTertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-              <Text style={styles.clearBtnText}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Location filter */}
-        <LocationFilter selected={locationFilter} onSelect={setLocationFilter} />
-
-        {/* Status chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusRow}>
-          {STATUS_OPTIONS.map((st) => {
-            const active = st === statusFilter;
-            const color = st ? STATUS_COLORS[st] : Colors.textSecondary;
-            return (
-              <TouchableOpacity
-                key={String(st)}
-                onPress={() => setStatusFilter(st)}
-                style={[
-                  styles.statusChip,
-                  active && {
-                    backgroundColor: color + '18',
-                    borderColor: color + '70',
-                  },
-                ]}
-              >
-                <Text style={[styles.statusChipText, active && { color }]}>
-                  {st ? STATUS_LABELS[st] : 'All'}
-                </Text>
+        <FadeSlideIn delay={100} fromY={10}>
+          <View style={styles.searchWrap}>
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name, brand, color…"
+              placeholderTextColor={Colors.textTertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                <Text style={styles.clearBtnText}>✕</Text>
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            )}
+          </View>
+        </FadeSlideIn>
 
-        {/* List */}
+        {/* Filters */}
+        <FadeSlideIn delay={140} fromY={10}>
+          <LocationFilter selected={locationFilter} onSelect={setLocationFilter} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusRow}>
+            {STATUS_OPTIONS.map((st) => {
+              const active = st === statusFilter;
+              const color = st ? STATUS_COLORS[st] : Colors.textSecondary;
+              return (
+                <TouchableOpacity
+                  key={String(st)}
+                  onPress={() => setStatusFilter(st)}
+                  style={[
+                    styles.statusChip,
+                    active && {
+                      backgroundColor: color + '18',
+                      borderColor: color + '70',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.statusChipText, active && { color }]}>
+                    {st ? STATUS_LABELS[st] : 'All'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </FadeSlideIn>
+
+        {/* List — stagger each card */}
         <FlatList
           data={filteredItems}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ClothingCard item={item} />}
+          renderItem={({ item, index }) => (
+            <ClothingCard
+              item={item}
+              delay={Math.min(index * 40, 300)}
+            />
+          )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>👕</Text>
-              <Text style={styles.emptyTitle}>Nothing here</Text>
-              <Text style={styles.emptyText}>No items match your filters</Text>
-            </View>
+            <FadeSlideIn delay={200}>
+              <View style={styles.empty}>
+                <Text style={styles.emptyEmoji}>👕</Text>
+                <Text style={styles.emptyTitle}>Nothing here</Text>
+                <Text style={styles.emptyText}>No items match your filters</Text>
+              </View>
+            </FadeSlideIn>
           }
         />
       </SafeAreaView>

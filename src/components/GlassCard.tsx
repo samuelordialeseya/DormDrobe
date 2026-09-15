@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Colors, Radii } from '../theme/theme';
 
 interface GlassCardProps {
   children: React.ReactNode;
-  style?: ViewStyle | ViewStyle[];
+  style?: StyleProp<ViewStyle>;
   /** Brightness variant */
   variant?: 'dim' | 'normal' | 'bright';
   radius?: number;
@@ -42,7 +42,7 @@ export default function GlassCard({
           borderColor: border,
         },
         !noShadow && styles.shadow,
-        Array.isArray(style) ? style : style ? [style] : null,
+        style,
       ]}
     >
       {/* Top specular highlight */}
