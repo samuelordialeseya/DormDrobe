@@ -32,10 +32,9 @@ export default function LocationFilter({ selected, onSelect }: Props) {
           <TouchableOpacity
             key={String(loc)}
             onPress={() => onSelect(loc)}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
             style={[styles.chip, active && styles.chipActive]}
           >
-            {active && <View style={styles.chipGlow} />}
             <Text style={styles.chipIcon}>{icon}</Text>
             <Text style={[styles.chipText, active && styles.chipTextActive]}>
               {label}
@@ -64,32 +63,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGlass,
     gap: 5,
-    position: 'relative',
-    overflow: 'hidden',
   },
+  // Active = slightly brighter glass, white text — no color
   chipActive: {
-    backgroundColor: 'rgba(139,92,246,0.22)',
-    borderColor: 'rgba(139,92,246,0.55)',
-  },
-  chipGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(196,181,253,0.5)',
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
   chipIcon: {
     fontSize: 13,
   },
   chipText: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: 13,
     fontWeight: '500',
     letterSpacing: -0.1,
   },
   chipTextActive: {
-    color: Colors.purple300,
+    color: Colors.textPrimary,
     fontWeight: '600',
   },
 });

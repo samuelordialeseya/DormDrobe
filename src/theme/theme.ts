@@ -1,52 +1,39 @@
 // ─── DormDrobe Design System ─────────────────────────────────────────
-// Apple-inspired Liquid Glass aesthetic
+// Apple-inspired Liquid Glass — neutral, restrained, color-on-purpose.
 
 export const Colors = {
-  // Background layers
-  bgDeep: '#08090F',
-  bgBase: '#0D0E1A',
-  bgLayer: '#12132080',
+  // True deep black backgrounds (Apple-style)
+  bgDeep: '#000000',
+  bgBase: '#0A0A0A',
+  bgLayer: '#111111',
 
-  // Glass surfaces
-  glassLight: 'rgba(255,255,255,0.07)',
-  glassMid: 'rgba(255,255,255,0.10)',
-  glassBright: 'rgba(255,255,255,0.14)',
-  glassWhite: 'rgba(255,255,255,0.18)',
+  // Glass surfaces — neutral white transparency only
+  glassLight: 'rgba(255,255,255,0.055)',
+  glassMid: 'rgba(255,255,255,0.085)',
+  glassBright: 'rgba(255,255,255,0.12)',
+  glassWhite: 'rgba(255,255,255,0.16)',
 
-  // Glass borders
-  borderGlass: 'rgba(255,255,255,0.12)',
-  borderGlassBright: 'rgba(255,255,255,0.22)',
+  // Glass borders — crisp, neutral
+  borderGlass: 'rgba(255,255,255,0.10)',
+  borderGlassBright: 'rgba(255,255,255,0.18)',
 
-  // Brand purple palette
-  purple100: '#EDE9FE',
-  purple200: '#DDD6FE',
-  purple300: '#C4B5FD',
-  purple400: '#A78BFA',
-  purple500: '#8B5CF6',
-  purple600: '#7C3AED',
-  purple700: '#6D28D9',
+  // Brand accent — used ONLY on primary buttons & active indicators
+  accent: '#7C3AED',        // single source of truth
+  accentLight: '#A78BFA',   // active text / labels
 
-  // Accent blue
-  blue400: '#60A5FA',
-  blue500: '#3B82F6',
+  // Status colors (functional, not decorative)
+  statusClean: '#30D158',    // Apple system green
+  statusWorn: '#FF9F0A',     // Apple system orange
+  statusLaundry: '#FF6B35',
+  statusDrying: '#0A84FF',   // Apple system blue
+  statusMisplaced: '#FF453A', // Apple system red
 
-  // Status
-  statusClean: '#34D399',
-  statusWorn: '#FBBF24',
-  statusLaundry: '#FB923C',
-  statusDrying: '#60A5FA',
-  statusMisplaced: '#F87171',
-
-  // Neutral
+  // Text
   white: '#FFFFFF',
-  textPrimary: 'rgba(255,255,255,0.92)',
-  textSecondary: 'rgba(255,255,255,0.55)',
-  textTertiary: 'rgba(255,255,255,0.32)',
-  textInactive: 'rgba(255,255,255,0.22)',
-
-  // Glow
-  purpleGlow: 'rgba(139,92,246,0.35)',
-  blueGlow: 'rgba(96,165,250,0.25)',
+  textPrimary: 'rgba(255,255,255,0.90)',
+  textSecondary: 'rgba(255,255,255,0.50)',
+  textTertiary: 'rgba(255,255,255,0.28)',
+  textInactive: 'rgba(255,255,255,0.18)',
 };
 
 export const Radii = {

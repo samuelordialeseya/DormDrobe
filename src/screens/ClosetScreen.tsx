@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import LocationFilter from '../components/LocationFilter';
 import ClothingCard from '../components/ClothingCard';
-import BackgroundOrbs from '../components/BackgroundOrbs';
 import { Status, STATUS_LABELS, STATUS_COLORS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
@@ -29,15 +28,13 @@ export default function ClosetScreen() {
     searchQuery,
     setSearchQuery,
     loading,
-    countItems,
     items,
   } = useWardrobe();
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <BackgroundOrbs />
-        <ActivityIndicator size="large" color={Colors.purple400} style={{ marginTop: 120 }} />
+        <ActivityIndicator size="large" color={Colors.textSecondary} style={{ marginTop: 120 }} />
       </View>
     );
   }
@@ -47,38 +44,34 @@ export default function ClosetScreen() {
 
   return (
     <View style={styles.container}>
-      <BackgroundOrbs variant="mixed" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.appName}>DormDrobe</Text>
             <Text style={styles.title}>My Closet</Text>
+            <Text style={styles.subtitle}>{filteredItems.length} items</Text>
           </View>
-          <View style={styles.headerStats}>
-            <View style={styles.headerStat}>
-              <Text style={styles.headerStatNum}>{filteredItems.length}</Text>
-              <Text style={styles.headerStatLabel}>items</Text>
-            </View>
+          <View style={styles.headerStatBadge}>
+            <Text style={styles.headerStatNum}>{filteredItems.length}</Text>
           </View>
         </View>
 
         {/* Quick stats strip */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsStrip}>
-          <View style={[styles.statChip, { borderColor: Colors.statusClean + '55' }]}>
+          <View style={[styles.statChip, { borderColor: Colors.statusClean + '60' }]}>
             <View style={[styles.statDot, { backgroundColor: Colors.statusClean }]} />
-            <Text style={[styles.statChipNum, { color: Colors.statusClean }]}>{cleanCount}</Text>
-            <Text style={styles.statChipLabel}>Clean</Text>
+            <Text style={[styles.statNum, { color: Colors.statusClean }]}>{cleanCount}</Text>
+            <Text style={styles.statLabel}>Clean</Text>
           </View>
-          <View style={[styles.statChip, { borderColor: Colors.statusWorn + '55' }]}>
+          <View style={[styles.statChip, { borderColor: Colors.statusWorn + '60' }]}>
             <View style={[styles.statDot, { backgroundColor: Colors.statusWorn }]} />
-            <Text style={[styles.statChipNum, { color: Colors.statusWorn }]}>{wornCount}</Text>
-            <Text style={styles.statChipLabel}>Worn</Text>
+            <Text style={[styles.statNum, { color: Colors.statusWorn }]}>{wornCount}</Text>
+            <Text style={styles.statLabel}>Worn</Text>
           </View>
-          <View style={[styles.statChip, { borderColor: Colors.purple300 + '55' }]}>
-            <View style={[styles.statDot, { backgroundColor: Colors.purple400 }]} />
-            <Text style={[styles.statChipNum, { color: Colors.purple300 }]}>{items.length}</Text>
-            <Text style={styles.statChipLabel}>Total</Text>
+          <View style={styles.statChip}>
+            <View style={[styles.statDot, { backgroundColor: Colors.textTertiary }]} />
+            <Text style={[styles.statNum, { color: Colors.textSecondary }]}>{items.length}</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
         </ScrollView>
 
@@ -107,7 +100,7 @@ export default function ClosetScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusRow}>
           {STATUS_OPTIONS.map((st) => {
             const active = st === statusFilter;
-            const color = st ? STATUS_COLORS[st] : Colors.purple400;
+            const color = st ? STATUS_COLORS[st] : Colors.textSecondary;
             return (
               <TouchableOpacity
                 key={String(st)}
@@ -115,12 +108,11 @@ export default function ClosetScreen() {
                 style={[
                   styles.statusChip,
                   active && {
-                    backgroundColor: color + '22',
-                    borderColor: color + '88',
+                    backgroundColor: color + '18',
+                    borderColor: color + '70',
                   },
                 ]}
               >
-                {active && <View style={[styles.chipSpecular, { backgroundColor: color + '40' }]} />}
                 <Text style={[styles.statusChipText, active && { color }]}>
                   {st ? STATUS_LABELS[st] : 'All'}
                 </Text>
@@ -160,41 +152,35 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
-  },
-  appName: {
-    color: Colors.purple300,
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 2,
   },
   title: {
     color: Colors.textPrimary,
     ...Typography.title1,
   },
-  headerStats: {
-    alignItems: 'flex-end',
+  subtitle: {
+    color: Colors.textTertiary,
+    fontSize: 13,
+    marginTop: 2,
+    letterSpacing: -0.1,
   },
-  headerStat: {
+  headerStatBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.glassMid,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   headerStatNum: {
-    color: Colors.purple300,
-    fontSize: 26,
+    color: Colors.textPrimary,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: -1,
-  },
-  headerStatLabel: {
-    color: Colors.textTertiary,
-    fontSize: 10,
-    fontWeight: '500',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
   },
   statsStrip: {
     flexDirection: 'row',
@@ -205,25 +191,26 @@ const styles = StyleSheet.create({
   statChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: Radii.pill,
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
+    borderColor: Colors.borderGlass,
   },
   statDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  statChipNum: {
+  statNum: {
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
-  statChipLabel: {
-    color: Colors.textSecondary,
+  statLabel: {
+    color: Colors.textTertiary,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -238,13 +225,11 @@ const styles = StyleSheet.create({
     height: 46,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    overflow: 'hidden',
   },
   searchIcon: {
     color: Colors.textTertiary,
     fontSize: 18,
     marginRight: 8,
-    fontWeight: '300',
   },
   searchInput: {
     flex: 1,
@@ -272,15 +257,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  chipSpecular: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
   },
   statusChipText: {
     color: Colors.textTertiary,
@@ -299,7 +275,7 @@ const styles = StyleSheet.create({
   emptyEmoji: {
     fontSize: 52,
     marginBottom: 14,
-    opacity: 0.5,
+    opacity: 0.3,
   },
   emptyTitle: {
     color: Colors.textSecondary,

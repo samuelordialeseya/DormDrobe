@@ -12,7 +12,6 @@ interface Props {
   onToggleSelect?: () => void;
 }
 
-// Map color names to approximate hex values
 const COLOR_MAP: Record<string, string> = {
   white: '#F8F8FA',
   black: '#1C1C1E',
@@ -33,7 +32,7 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 function resolveColor(colorStr: string): string {
-  return COLOR_MAP[colorStr.toLowerCase()] ?? '#8E8E93';
+  return COLOR_MAP[colorStr.toLowerCase()] ?? '#636366';
 }
 
 export default function ClothingCard({
@@ -48,29 +47,25 @@ export default function ClothingCard({
 
   return (
     <TouchableOpacity
-      activeOpacity={0.75}
+      activeOpacity={0.72}
       onPress={selectable ? onToggleSelect : onPress}
       style={[styles.card, selected && styles.selectedCard]}
     >
-      {/* Top specular line */}
+      {/* Specular top edge */}
       <View style={styles.specular} />
 
-      {/* Left accent bar based on status color */}
-      <View style={[styles.accentBar, { backgroundColor: accentColor + '80' }]} />
+      {/* Functional status accent — left edge, status color only */}
+      <View style={[styles.accentBar, { backgroundColor: accentColor + '70' }]} />
 
       {/* Thumbnail */}
       <View style={[styles.thumb, selected && styles.thumbSelected]}>
         <Text style={styles.emoji}>{emoji}</Text>
-
-        {/* Color swatch */}
         <View
           style={[
             styles.colorSwatch,
             { backgroundColor: resolveColor(item.color) },
           ]}
         />
-
-        {/* Selection checkbox */}
         {selectable && (
           <View style={[styles.checkbox, selected && styles.checkboxActive]}>
             {selected && <Text style={styles.checkmark}>✓</Text>}
@@ -118,14 +113,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.20,
+    shadowRadius: 8,
+    elevation: 4,
   },
   selectedCard: {
-    borderColor: 'rgba(139,92,246,0.55)',
-    backgroundColor: 'rgba(139,92,246,0.15)',
+    // Selected = brighter glass, white border — no color
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
   specular: {
     position: 'absolute',
@@ -133,14 +129,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     zIndex: 5,
   },
   accentBar: {
     position: 'absolute',
     left: 0,
-    top: 12,
-    bottom: 12,
+    top: 10,
+    bottom: 10,
     width: 3,
     borderRadius: 2,
   },
@@ -148,7 +144,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: Radii.lg,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
     alignItems: 'center',
@@ -159,7 +155,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   thumbSelected: {
-    borderColor: 'rgba(139,92,246,0.5)',
+    borderColor: Colors.borderGlassBright,
   },
   emoji: {
     fontSize: 30,
@@ -172,7 +168,7 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   checkbox: {
     position: 'absolute',
@@ -188,8 +184,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxActive: {
-    borderColor: Colors.purple500,
-    backgroundColor: Colors.purple500,
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accent,
   },
   checkmark: {
     color: '#fff',
@@ -215,15 +211,15 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   uniformBadge: {
-    backgroundColor: 'rgba(96,165,250,0.18)',
+    backgroundColor: 'rgba(10,132,255,0.15)',
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.4)',
+    borderColor: 'rgba(10,132,255,0.35)',
   },
   uniformText: {
-    color: Colors.blue400,
+    color: '#0A84FF',
     fontSize: 8,
     fontWeight: '700',
     letterSpacing: 0.5,

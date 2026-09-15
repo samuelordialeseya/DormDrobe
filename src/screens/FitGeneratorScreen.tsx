@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
-import BackgroundOrbs from '../components/BackgroundOrbs';
 import {
   ClothingItem,
   Location,
@@ -26,13 +25,11 @@ interface Outfit {
 }
 
 const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
-
 const LOC_SHORT: Record<Location, string> = {
   calamba_home: 'Calamba',
   batangas_dorm: 'Batangas',
   in_transit_bag: 'In Bag',
 };
-
 const LOC_ICONS: Record<Location, string> = {
   calamba_home: '🏠',
   batangas_dorm: '🏫',
@@ -72,7 +69,7 @@ export default function FitGeneratorScreen() {
       setOutfit(null);
       setError(
         mode === 'uniform'
-          ? `No clean uniform pieces at ${LOC_SHORT[currentLocation]}. Need a white tee + bottom.`
+          ? `No clean uniform pieces at ${LOC_SHORT[currentLocation]}.`
           : `Not enough clean tops & bottoms at ${LOC_SHORT[currentLocation]}.`,
       );
       return;
@@ -82,14 +79,12 @@ export default function FitGeneratorScreen() {
 
   return (
     <View style={styles.container}>
-      <BackgroundOrbs variant="blue" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.appName}>DormDrobe</Text>
             <Text style={styles.title}>Fit Generator</Text>
-            <Text style={styles.subtitle}>Let the app dress you today ✨</Text>
+            <Text style={styles.subtitle}>Let DormDrobe dress you today</Text>
           </View>
 
           {/* Mode selector */}
@@ -101,9 +96,8 @@ export default function FitGeneratorScreen() {
                   key={m}
                   style={[styles.modeCard, active && styles.modeCardActive]}
                   onPress={() => { setMode(m); setOutfit(null); }}
-                  activeOpacity={0.75}
+                  activeOpacity={0.7}
                 >
-                  {active && <View style={styles.modeCardGlow} />}
                   <Text style={styles.modeEmoji}>{m === 'uniform' ? '🏫' : '🧢'}</Text>
                   <Text style={[styles.modeTitle, active && styles.modeTitleActive]}>
                     {m === 'uniform' ? 'Uniform' : 'Casual'}
@@ -126,9 +120,8 @@ export default function FitGeneratorScreen() {
                   key={loc}
                   style={[styles.locChip, active && styles.locChipActive]}
                   onPress={() => { setCurrentLocation(loc); setOutfit(null); }}
-                  activeOpacity={0.7}
+                  activeOpacity={0.6}
                 >
-                  {active && <View style={styles.chipGlow} />}
                   <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
                   <Text style={[styles.locText, active && styles.locTextActive]}>
                     {LOC_SHORT[loc]}
@@ -138,17 +131,15 @@ export default function FitGeneratorScreen() {
             })}
           </View>
 
-          {/* Generate button */}
+          {/* Generate button — accent only on primary CTA */}
           <TouchableOpacity style={styles.generateBtn} onPress={generateOutfit} activeOpacity={0.8}>
-            <View style={styles.generateBtnGlow} />
-            <Text style={styles.generateBtnIcon}>✦</Text>
+            <View style={styles.btnSpecular} />
             <Text style={styles.generateBtnText}>Generate Outfit</Text>
           </TouchableOpacity>
 
           {/* Error */}
           {error && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorIcon}>⚠</Text>
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
@@ -156,7 +147,7 @@ export default function FitGeneratorScreen() {
           {/* Result */}
           {outfit && (
             <View style={styles.outfitResult}>
-              <Text style={styles.resultTitle}>Today's Fit 🔥</Text>
+              <Text style={styles.resultTitle}>Today's Fit</Text>
 
               <Text style={styles.slotLabel}>TOP</Text>
               <ClothingCard item={outfit.top} />
@@ -187,9 +178,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.bgBase,
   },
-  safe: {
-    flex: 1,
-  },
+  safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: 120,
@@ -198,23 +187,14 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     marginBottom: Spacing.xl,
   },
-  appName: {
-    color: Colors.blue400,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
   title: {
     color: Colors.textPrimary,
     ...Typography.title1,
     marginBottom: 4,
   },
   subtitle: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: 14,
-    letterSpacing: -0.1,
   },
   modeRow: {
     flexDirection: 'row',
@@ -229,33 +209,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    position: 'relative',
-    overflow: 'hidden',
   },
   modeCardActive: {
-    backgroundColor: 'rgba(59,130,246,0.14)',
-    borderColor: 'rgba(96,165,250,0.45)',
-  },
-  modeCardGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(147,197,253,0.5)',
+    // Active = brighter glass, white border
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
   modeEmoji: {
     fontSize: 30,
     marginBottom: 6,
   },
   modeTitle: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 3,
   },
   modeTitleActive: {
-    color: Colors.blue400,
+    color: Colors.textPrimary,
   },
   modeDesc: {
     color: Colors.textTertiary,
@@ -285,61 +256,44 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    position: 'relative',
-    overflow: 'hidden',
   },
   locChipActive: {
-    backgroundColor: 'rgba(59,130,246,0.18)',
-    borderColor: 'rgba(96,165,250,0.50)',
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
-  chipGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(147,197,253,0.5)',
-  },
-  locIcon: {
-    fontSize: 13,
-  },
+  locIcon: { fontSize: 13 },
   locText: {
     color: Colors.textTertiary,
     fontSize: 12,
     fontWeight: '500',
   },
   locTextActive: {
-    color: Colors.blue400,
+    color: Colors.textPrimary,
     fontWeight: '600',
   },
   generateBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: Colors.purple600,
+    backgroundColor: Colors.accent,
     borderRadius: Radii.xl,
     paddingVertical: 18,
     marginBottom: Spacing.xl,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: Colors.purple500,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 12,
+    // Neutral black shadow — no colored glow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  generateBtnGlow: {
+  btnSpecular: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  generateBtnIcon: {
-    color: '#fff',
-    fontSize: 16,
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   generateBtnText: {
     color: '#fff',
@@ -348,29 +302,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   errorBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: 'rgba(248,113,113,0.12)',
+    backgroundColor: 'rgba(255,69,58,0.10)',
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.35)',
-  },
-  errorIcon: {
-    fontSize: 16,
-    color: Colors.statusMisplaced,
+    borderColor: 'rgba(255,69,58,0.30)',
   },
   errorText: {
-    flex: 1,
-    color: '#FCA5A5',
+    color: '#FF6B6B',
     fontSize: 13,
     lineHeight: 19,
   },
-  outfitResult: {
-    marginTop: 4,
-  },
+  outfitResult: { marginTop: 4 },
   resultTitle: {
     color: Colors.textPrimary,
     ...Typography.title2,
@@ -394,9 +338,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderGlass,
   },
   reshuffleBtnText: {
-    color: Colors.purple300,
+    color: Colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
-    letterSpacing: -0.1,
   },
 });

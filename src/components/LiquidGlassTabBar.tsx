@@ -23,12 +23,9 @@ export default function LiquidGlassTabBar({ state, descriptors, navigation }: Bo
 
   return (
     <View style={[styles.outerContainer, { paddingBottom: insets.bottom + 8 }]}>
-      {/* Pill-shaped liquid glass bar */}
       <View style={styles.glassBar}>
-        {/* Top specular highlight */}
+        {/* Specular top edge */}
         <View style={styles.topHighlight} />
-        {/* Inner glow */}
-        <View style={styles.innerGlow} />
 
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
@@ -49,21 +46,17 @@ export default function LiquidGlassTabBar({ state, descriptors, navigation }: Bo
             <TouchableOpacity
               key={route.key}
               onPress={onPress}
-              activeOpacity={0.7}
+              activeOpacity={0.6}
               style={styles.tabItem}
             >
-              {/* Active indicator pill */}
-              {isFocused && (
-                <View style={styles.activePill}>
-                  <View style={styles.activePillGlow} />
-                </View>
-              )}
+              {/* Active pill — neutral white tint, no color */}
+              {isFocused && <View style={styles.activePill} />}
 
               <View style={styles.tabContent}>
                 <Text
                   style={[
                     styles.tabIcon,
-                    isFocused ? styles.tabIconActive : styles.tabIconInactive,
+                    { opacity: isFocused ? 1 : 0.38 },
                   ]}
                 >
                   {tab.icon}
@@ -92,8 +85,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    // No background — lets the screen content show through
+    paddingHorizontal: 20,
   },
   glassBar: {
     flexDirection: 'row',
@@ -101,16 +93,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 64,
     borderRadius: Radii.pill,
-    backgroundColor: 'rgba(18,16,30,0.72)',
+    // Neutral frosted glass — no color tint
+    backgroundColor: 'rgba(28,28,30,0.88)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 8,
     overflow: 'hidden',
-    // Shadow/glow
-    shadowColor: Colors.purple500,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
+    // Black shadow only, no colored glow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.55,
+    shadowRadius: 28,
     elevation: 20,
   },
   topHighlight: {
@@ -119,17 +112,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.28)',
-    borderTopLeftRadius: Radii.pill,
-    borderTopRightRadius: Radii.pill,
-  },
-  innerGlow: {
-    position: 'absolute',
-    top: 1,
-    left: 0,
-    right: 0,
-    height: 32,
-    backgroundColor: 'rgba(139,92,246,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     borderTopLeftRadius: Radii.pill,
     borderTopRightRadius: Radii.pill,
   },
@@ -144,22 +127,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    transform: [{ translateX: -24 }, { translateY: -22 }],
-    width: 48,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(139,92,246,0.25)',
+    transform: [{ translateX: -22 }, { translateY: -21 }],
+    width: 44,
+    height: 42,
+    borderRadius: 21,
+    // Neutral white tint only
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.40)',
-    overflow: 'hidden',
-  },
-  activePillGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(196,181,253,0.6)',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   tabContent: {
     alignItems: 'center',
@@ -169,21 +144,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
   },
-  tabIconActive: {
-    opacity: 1,
-  },
-  tabIconInactive: {
-    opacity: 0.45,
-  },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: Colors.purple300,
+    color: 'rgba(255,255,255,0.88)',
   },
   tabLabelInactive: {
-    color: 'rgba(255,255,255,0.38)',
+    color: 'rgba(255,255,255,0.32)',
   },
 });

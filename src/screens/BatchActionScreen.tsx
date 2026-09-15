@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
-import BackgroundOrbs from '../components/BackgroundOrbs';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
@@ -64,7 +63,7 @@ export default function BatchActionScreen() {
       return;
     }
     Alert.alert(
-      'Laundry Day 🧺',
+      'Laundry Day',
       `Mark ${wornAtLocation.length} worn items as "In Laundry"?`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -79,11 +78,11 @@ export default function BatchActionScreen() {
       return;
     }
     Alert.alert(
-      'Laundry Done! 🎉',
+      'Laundry Done',
       `Mark ${laundryAtLocation.length} items as "Clean"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'All Clean!', onPress: () => batchSetStatus({ location: selectedLocation, status: 'in_laundry' }, 'clean') },
+        { text: 'All Clean', onPress: () => batchSetStatus({ location: selectedLocation, status: 'in_laundry' }, 'clean') },
       ],
     );
   };
@@ -94,12 +93,12 @@ export default function BatchActionScreen() {
       return;
     }
     Alert.alert(
-      'Pack Items 🎒',
+      'Pack Items',
       `Move ${selectedIds.size} items to ${LOCATION_LABELS[packTarget]}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Pack!',
+          text: 'Pack',
           onPress: () => {
             batchMoveItems(Array.from(selectedIds), packTarget);
             setSelectedIds(new Set());
@@ -111,13 +110,11 @@ export default function BatchActionScreen() {
 
   return (
     <View style={styles.container}>
-      <BackgroundOrbs variant="purple" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.appName}>DormDrobe</Text>
           <Text style={styles.title}>Quick Actions</Text>
-          <Text style={styles.subtitle}>Laundry day & packing assistant</Text>
+          <Text style={styles.subtitle}>Laundry & packing assistant</Text>
         </View>
 
         {/* Mode toggle */}
@@ -129,9 +126,8 @@ export default function BatchActionScreen() {
                 key={m}
                 style={[styles.modeBtn, active && styles.modeBtnActive]}
                 onPress={() => setMode(m)}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
               >
-                {active && <View style={styles.modeBtnGlow} />}
                 <Text style={styles.modeBtnIcon}>{m === 'laundry' ? '🧺' : '🎒'}</Text>
                 <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
                   {m === 'laundry' ? 'Laundry Day' : 'Pack / Move'}
@@ -151,9 +147,8 @@ export default function BatchActionScreen() {
                 key={loc}
                 style={[styles.locChip, active && styles.locChipActive]}
                 onPress={() => { setSelectedLocation(loc); setSelectedIds(new Set()); }}
-                activeOpacity={0.7}
+                activeOpacity={0.6}
               >
-                {active && <View style={styles.chipGlow} />}
                 <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
                 <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
               </TouchableOpacity>
@@ -164,29 +159,29 @@ export default function BatchActionScreen() {
         {/* Content */}
         {mode === 'laundry' ? (
           <View style={styles.actionArea}>
-            <TouchableOpacity style={styles.actionCard} onPress={handleMarkAllWornAsLaundry} activeOpacity={0.75}>
-              <View style={styles.actionCardGlow} />
-              <View style={[styles.actionIconBg, { backgroundColor: 'rgba(251,191,36,0.15)', borderColor: 'rgba(251,191,36,0.3)' }]}>
+            <TouchableOpacity style={styles.actionCard} onPress={handleMarkAllWornAsLaundry} activeOpacity={0.72}>
+              <View style={styles.specular} />
+              <View style={[styles.actionIconBg, { backgroundColor: Colors.statusWorn + '18', borderColor: Colors.statusWorn + '40' }]}>
                 <Text style={styles.actionEmoji}>🧺</Text>
               </View>
               <View style={styles.actionCardBody}>
                 <Text style={styles.actionTitle}>Mark Worn → In Laundry</Text>
                 <Text style={styles.actionDesc}>
-                  {wornAtLocation.length} worn items at {LOC_SHORT[selectedLocation]}
+                  {wornAtLocation.length} worn at {LOC_SHORT[selectedLocation]}
                 </Text>
               </View>
               <Text style={styles.actionArrow}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard} onPress={handleMarkLaundryAsClean} activeOpacity={0.75}>
-              <View style={styles.actionCardGlow} />
-              <View style={[styles.actionIconBg, { backgroundColor: 'rgba(52,211,153,0.15)', borderColor: 'rgba(52,211,153,0.3)' }]}>
+            <TouchableOpacity style={styles.actionCard} onPress={handleMarkLaundryAsClean} activeOpacity={0.72}>
+              <View style={styles.specular} />
+              <View style={[styles.actionIconBg, { backgroundColor: Colors.statusClean + '18', borderColor: Colors.statusClean + '40' }]}>
                 <Text style={styles.actionEmoji}>✨</Text>
               </View>
               <View style={styles.actionCardBody}>
                 <Text style={styles.actionTitle}>Mark Laundry → Clean</Text>
                 <Text style={styles.actionDesc}>
-                  {laundryAtLocation.length} in-laundry items at {LOC_SHORT[selectedLocation]}
+                  {laundryAtLocation.length} in-laundry at {LOC_SHORT[selectedLocation]}
                 </Text>
               </View>
               <Text style={styles.actionArrow}>›</Text>
@@ -203,9 +198,8 @@ export default function BatchActionScreen() {
                     key={loc}
                     style={[styles.locChip, active && styles.locChipActive]}
                     onPress={() => setPackTarget(loc)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.6}
                   >
-                    {active && <View style={styles.chipGlow} />}
                     <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
                     <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
                   </TouchableOpacity>
@@ -235,9 +229,9 @@ export default function BatchActionScreen() {
 
             {selectedIds.size > 0 && (
               <TouchableOpacity style={styles.packBtn} onPress={handlePack} activeOpacity={0.85}>
-                <View style={styles.packBtnGlow} />
+                <View style={styles.btnSpecular} />
                 <Text style={styles.packBtnText}>
-                  🎒  Pack {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}
+                  Pack {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''}
                 </Text>
               </TouchableOpacity>
             )}
@@ -249,25 +243,12 @@ export default function BatchActionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bgBase,
-  },
-  safe: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: Colors.bgBase },
+  safe: { flex: 1 },
   header: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     marginBottom: Spacing.md,
-  },
-  appName: {
-    color: Colors.purple300,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 2,
   },
   title: {
     color: Colors.textPrimary,
@@ -275,7 +256,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: 14,
   },
   modeRow: {
@@ -295,31 +276,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    position: 'relative',
-    overflow: 'hidden',
   },
   modeBtnActive: {
-    backgroundColor: 'rgba(139,92,246,0.18)',
-    borderColor: 'rgba(139,92,246,0.50)',
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
-  modeBtnGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(196,181,253,0.5)',
-  },
-  modeBtnIcon: {
-    fontSize: 16,
-  },
+  modeBtnIcon: { fontSize: 16 },
   modeBtnText: {
     color: Colors.textTertiary,
     fontSize: 14,
     fontWeight: '600',
   },
   modeBtnTextActive: {
-    color: Colors.purple300,
+    color: Colors.textPrimary,
   },
   sectionLabel: {
     color: Colors.textTertiary,
@@ -346,20 +315,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    position: 'relative',
-    overflow: 'hidden',
   },
   locChipActive: {
-    backgroundColor: 'rgba(139,92,246,0.18)',
-    borderColor: 'rgba(139,92,246,0.50)',
-  },
-  chipGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(196,181,253,0.5)',
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
   locIcon: { fontSize: 13 },
   locText: {
@@ -368,7 +327,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   locTextActive: {
-    color: Colors.purple300,
+    color: Colors.textPrimary,
     fontWeight: '600',
   },
   actionArea: {
@@ -386,8 +345,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderGlass,
     position: 'relative',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  actionCardGlow: {
+  specular: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -403,12 +367,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
-  actionEmoji: {
-    fontSize: 24,
-  },
-  actionCardBody: {
-    flex: 1,
-  },
+  actionEmoji: { fontSize: 24 },
+  actionCardBody: { flex: 1 },
   actionTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
@@ -425,9 +385,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '300',
   },
-  packArea: {
-    flex: 1,
-  },
+  packArea: { flex: 1 },
   list: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: 120,
@@ -443,24 +401,24 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: Spacing.xl,
     right: Spacing.xl,
-    backgroundColor: Colors.purple600,
+    backgroundColor: Colors.accent,
     borderRadius: Radii.xl,
     paddingVertical: 18,
     alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: Colors.purple500,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  packBtnGlow: {
+  btnSpecular: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   packBtnText: {
     color: '#fff',

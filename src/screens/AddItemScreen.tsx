@@ -13,14 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useWardrobe } from '../context/WardrobeContext';
-import BackgroundOrbs from '../components/BackgroundOrbs';
 import {
   Category,
   Location,
   Status,
   CATEGORY_LABELS,
   CATEGORY_ICONS,
-  LOCATION_LABELS,
   STATUS_LABELS,
   STATUS_COLORS,
 } from '../types/wardrobe';
@@ -62,14 +60,8 @@ export default function AddItemScreen() {
   };
 
   const handleSave = () => {
-    if (!name.trim()) {
-      Alert.alert('Missing Name', 'Give your clothing item a name.');
-      return;
-    }
-    if (!color.trim()) {
-      Alert.alert('Missing Color', 'What color is it?');
-      return;
-    }
+    if (!name.trim()) { Alert.alert('Missing Name', 'Give your clothing item a name.'); return; }
+    if (!color.trim()) { Alert.alert('Missing Color', 'What color is it?'); return; }
 
     addItem({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -86,38 +78,28 @@ export default function AddItemScreen() {
       createdAt: new Date().toISOString(),
     });
 
-    Alert.alert('Added! 🎉', `${name} has been added to your wardrobe.`);
-    setName('');
-    setColor('');
-    setBrand('');
-    setImageUri(null);
-    setNotes('');
-    setIsUniform(false);
+    Alert.alert('Added', `${name} has been added to your wardrobe.`);
+    setName(''); setColor(''); setBrand(''); setImageUri(null); setNotes(''); setIsUniform(false);
   };
 
   return (
     <View style={styles.container}>
-      <BackgroundOrbs variant="mixed" />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.appName}>DormDrobe</Text>
               <Text style={styles.title}>Add Item</Text>
               <Text style={styles.subtitle}>Capture a new clothing item</Text>
             </View>
 
             {/* Photo picker */}
-            <TouchableOpacity style={styles.photoPicker} onPress={pickImage} activeOpacity={0.75}>
-              <View style={styles.photoPickerGlow} />
+            <TouchableOpacity style={styles.photoPicker} onPress={pickImage} activeOpacity={0.7}>
+              <View style={styles.specular} />
               {imageUri ? (
                 <>
                   <Text style={styles.photoEmoji}>📸</Text>
-                  <Text style={styles.photoLabel}>Photo attached ✓</Text>
+                  <Text style={styles.photoLabel}>Photo attached</Text>
                 </>
               ) : (
                 <>
@@ -175,9 +157,8 @@ export default function AddItemScreen() {
                     key={cat}
                     style={[styles.chip, active && styles.chipActive]}
                     onPress={() => setCategory(cat)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.65}
                   >
-                    {active && <View style={styles.chipGlow} />}
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
                     </Text>
@@ -196,9 +177,8 @@ export default function AddItemScreen() {
                     key={loc}
                     style={[styles.chip, active && styles.chipActive]}
                     onPress={() => setLocation(loc)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.65}
                   >
-                    {active && <View style={styles.chipGlow} />}
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {LOC_SHORT[loc]}
                     </Text>
@@ -212,23 +192,21 @@ export default function AddItemScreen() {
             <View style={styles.chipRow}>
               {STATUSES.map((st) => {
                 const active = st === status;
-                const color = STATUS_COLORS[st];
+                const statusColor = STATUS_COLORS[st];
                 return (
                   <TouchableOpacity
                     key={st}
                     style={[
                       styles.chip,
                       active && {
-                        backgroundColor: color + '20',
-                        borderColor: color + '60',
+                        backgroundColor: statusColor + '18',
+                        borderColor: statusColor + '60',
                       },
                     ]}
                     onPress={() => setStatus(st)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.65}
                   >
-                    <Text
-                      style={[styles.chipText, active && { color }]}
-                    >
+                    <Text style={[styles.chipText, active && { color: statusColor }]}>
                       {STATUS_LABELS[st]}
                     </Text>
                   </TouchableOpacity>
@@ -266,8 +244,8 @@ export default function AddItemScreen() {
 
             {/* Save */}
             <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-              <View style={styles.saveBtnGlow} />
-              <Text style={styles.saveBtnText}>＋  Add to Wardrobe</Text>
+              <View style={styles.saveSpecular} />
+              <Text style={styles.saveBtnText}>Add to Wardrobe</Text>
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -277,13 +255,8 @@ export default function AddItemScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bgBase,
-  },
-  safe: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: Colors.bgBase },
+  safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.xl,
     paddingBottom: 140,
@@ -292,29 +265,21 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     marginBottom: Spacing.xl,
   },
-  appName: {
-    color: Colors.purple300,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
   title: {
     color: Colors.textPrimary,
     ...Typography.title1,
     marginBottom: 4,
   },
   subtitle: {
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontSize: 14,
   },
   photoPicker: {
-    height: 130,
+    height: 120,
     backgroundColor: Colors.glassLight,
     borderRadius: Radii.xl,
-    borderWidth: 1.5,
-    borderColor: 'rgba(139,92,246,0.30)',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -323,30 +288,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  photoPickerGlow: {
+  specular: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 1,
-    backgroundColor: 'rgba(196,181,253,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   cameraIconRing: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(139,92,246,0.15)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.glassMid,
     borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.30)',
+    borderColor: Colors.borderGlass,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraIcon: {
-    fontSize: 22,
-  },
-  photoEmoji: {
-    fontSize: 36,
-  },
+  cameraIcon: { fontSize: 20 },
+  photoEmoji: { fontSize: 32 },
   photoLabel: {
     color: Colors.textTertiary,
     fontSize: 13,
@@ -387,20 +346,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    position: 'relative',
-    overflow: 'hidden',
   },
+  // Active = brighter glass + white text (no color fill for category/location)
   chipActive: {
-    backgroundColor: 'rgba(139,92,246,0.20)',
-    borderColor: 'rgba(139,92,246,0.55)',
-  },
-  chipGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(196,181,253,0.4)',
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
   },
   chipText: {
     color: Colors.textTertiary,
@@ -408,7 +358,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextActive: {
-    color: Colors.purple300,
+    color: Colors.textPrimary,
     fontWeight: '600',
   },
   toggleRow: {
@@ -433,17 +383,15 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   toggleBoxActive: {
-    borderColor: Colors.purple500,
-    backgroundColor: Colors.purple500,
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accent,
   },
   toggleCheck: {
     color: '#fff',
     fontSize: 13,
     fontWeight: '700',
   },
-  toggleTextArea: {
-    flex: 1,
-  },
+  toggleTextArea: { flex: 1 },
   toggleLabel: {
     color: Colors.textPrimary,
     fontSize: 14,
@@ -456,26 +404,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   saveBtn: {
-    backgroundColor: Colors.purple600,
+    backgroundColor: Colors.accent,
     borderRadius: Radii.xl,
     paddingVertical: 18,
     alignItems: 'center',
     marginTop: Spacing.xxl,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: Colors.purple500,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  saveBtnGlow: {
+  saveSpecular: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   saveBtnText: {
     color: '#fff',
