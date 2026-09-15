@@ -1,42 +1,44 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
+import { Colors, Radii, Spacing } from '../theme/theme';
+
+const LOCATIONS: (Location | null)[] = [null, 'calamba_home', 'batangas_dorm', 'in_transit_bag'];
+
+const LOCATION_ICONS: Record<string, string> = {
+  calamba_home: '🏠',
+  batangas_dorm: '🏫',
+  in_transit_bag: '🎒',
+};
 
 interface Props {
   selected: Location | null;
   onSelect: (loc: Location | null) => void;
 }
 
-const OPTIONS: { key: Location | null; label: string }[] = [
-  { key: null, label: '🌐 All' },
-  { key: 'calamba_home', label: LOCATION_LABELS.calamba_home },
-  { key: 'batangas_dorm', label: LOCATION_LABELS.batangas_dorm },
-  { key: 'in_transit_bag', label: LOCATION_LABELS.in_transit_bag },
-];
-
 export default function LocationFilter({ selected, onSelect }: Props) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.row}
+      contentContainerStyle={styles.container}
     >
-      {OPTIONS.map((opt) => {
-        const active = opt.key === selected;
+      {LOCATIONS.map((loc) => {
+        const active = loc === selected;
+        const icon = loc ? LOCATION_ICONS[loc] : '◈';
+        const label = loc ? LOCATION_LABELS[loc].replace(/^[^\s]+\s/, '') : 'All';
+
         return (
           <TouchableOpacity
-            key={String(opt.key)}
-            onPress={() => onSelect(opt.key)}
+            key={String(loc)}
+            onPress={() => onSelect(loc)}
+            activeOpacity={0.7}
             style={[styles.chip, active && styles.chipActive]}
           >
+            {active && <View style={styles.chipGlow} />}
+            <Text style={styles.chipIcon}>{icon}</Text>
             <Text style={[styles.chipText, active && styles.chipTextActive]}>
-              {opt.label}
+              {label}
             </Text>
           </TouchableOpacity>
         );
@@ -46,31 +48,48 @@ export default function LocationFilter({ selected, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: {
+  container: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#2A2A3E',
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.glassLight,
     borderWidth: 1,
-    borderColor: '#2A2A3E',
+    borderColor: Colors.borderGlass,
+    gap: 5,
+    position: 'relative',
+    overflow: 'hidden',
   },
   chipActive: {
-    backgroundColor: '#8B5CF620',
-    borderColor: '#8B5CF6',
+    backgroundColor: 'rgba(139,92,246,0.22)',
+    borderColor: 'rgba(139,92,246,0.55)',
+  },
+  chipGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(196,181,253,0.5)',
+  },
+  chipIcon: {
+    fontSize: 13,
   },
   chipText: {
-    color: '#9CA3AF',
+    color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '500',
+    letterSpacing: -0.1,
   },
   chipTextActive: {
-    color: '#C4B5FD',
+    color: Colors.purple300,
     fontWeight: '600',
   },
 });

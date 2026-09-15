@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useWardrobe } from '../context/WardrobeContext';
+import BackgroundOrbs from '../components/BackgroundOrbs';
 import {
   Category,
   Location,
@@ -21,11 +22,19 @@ import {
   CATEGORY_ICONS,
   LOCATION_LABELS,
   STATUS_LABELS,
+  STATUS_COLORS,
 } from '../types/wardrobe';
+import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
 const CATEGORIES: Category[] = ['tops', 'bottoms', 'underwear', 'footwear', 'outerwear', 'accessories'];
 const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
 const STATUSES: Status[] = ['clean', 'worn', 'in_laundry', 'drying'];
+
+const LOC_SHORT: Record<Location, string> = {
+  calamba_home: 'Calamba',
+  batangas_dorm: 'Batangas',
+  in_transit_bag: 'In Bag',
+};
 
 export default function AddItemScreen() {
   const { addItem } = useWardrobe();
@@ -78,8 +87,6 @@ export default function AddItemScreen() {
     });
 
     Alert.alert('Added! 🎉', `${name} has been added to your wardrobe.`);
-
-    // Reset form
     setName('');
     setColor('');
     setBrand('');
@@ -89,197 +96,284 @@ export default function AddItemScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Add Item</Text>
-          <Text style={styles.subtitle}>Quick-capture a new clothing item</Text>
-
-          {/* Photo */}
-          <TouchableOpacity style={styles.photoPicker} onPress={pickImage}>
-            {imageUri ? (
-              <Text style={styles.photoEmoji}>📸</Text>
-            ) : (
-              <>
-                <Text style={styles.photoEmoji}>📷</Text>
-                <Text style={styles.photoLabel}>Tap to add photo</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Name */}
-          <Text style={styles.fieldLabel}>Name *</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder='e.g. "White Uniqlo Tee #5"'
-            placeholderTextColor="#4B5563"
-          />
-
-          {/* Color */}
-          <Text style={styles.fieldLabel}>Color *</Text>
-          <TextInput
-            style={styles.input}
-            value={color}
-            onChangeText={setColor}
-            placeholder="e.g. Black, White, Navy"
-            placeholderTextColor="#4B5563"
-          />
-
-          {/* Brand */}
-          <Text style={styles.fieldLabel}>Brand</Text>
-          <TextInput
-            style={styles.input}
-            value={brand}
-            onChangeText={setBrand}
-            placeholder="e.g. Uniqlo, Carhartt"
-            placeholderTextColor="#4B5563"
-          />
-
-          {/* Category */}
-          <Text style={styles.fieldLabel}>Category</Text>
-          <View style={styles.chipRow}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.chip, category === cat && styles.chipActive]}
-                onPress={() => setCategory(cat)}
-              >
-                <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>
-                  {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Location */}
-          <Text style={styles.fieldLabel}>Location</Text>
-          <View style={styles.chipRow}>
-            {LOCATIONS.map((loc) => (
-              <TouchableOpacity
-                key={loc}
-                style={[styles.chip, location === loc && styles.chipActive]}
-                onPress={() => setLocation(loc)}
-              >
-                <Text style={[styles.chipText, location === loc && styles.chipTextActive]}>
-                  {LOCATION_LABELS[loc]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Status */}
-          <Text style={styles.fieldLabel}>Status</Text>
-          <View style={styles.chipRow}>
-            {STATUSES.map((st) => (
-              <TouchableOpacity
-                key={st}
-                style={[styles.chip, status === st && styles.chipActive]}
-                onPress={() => setStatus(st)}
-              >
-                <Text style={[styles.chipText, status === st && styles.chipTextActive]}>
-                  {STATUS_LABELS[st]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Uniform toggle */}
-          <TouchableOpacity
-            style={styles.toggleRow}
-            onPress={() => setIsUniform(!isUniform)}
-          >
-            <View style={[styles.toggleBox, isUniform && styles.toggleBoxActive]}>
-              {isUniform && <Text style={styles.toggleCheck}>✓</Text>}
+    <View style={styles.container}>
+      <BackgroundOrbs variant="mixed" />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.appName}>DormDrobe</Text>
+              <Text style={styles.title}>Add Item</Text>
+              <Text style={styles.subtitle}>Capture a new clothing item</Text>
             </View>
-            <Text style={styles.toggleLabel}>
-              This is a white T-shirt for school uniform
-            </Text>
-          </TouchableOpacity>
 
-          {/* Notes */}
-          <Text style={styles.fieldLabel}>Notes</Text>
-          <TextInput
-            style={[styles.input, { height: 72, textAlignVertical: 'top' }]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Any extra details…"
-            placeholderTextColor="#4B5563"
-            multiline
-          />
+            {/* Photo picker */}
+            <TouchableOpacity style={styles.photoPicker} onPress={pickImage} activeOpacity={0.75}>
+              <View style={styles.photoPickerGlow} />
+              {imageUri ? (
+                <>
+                  <Text style={styles.photoEmoji}>📸</Text>
+                  <Text style={styles.photoLabel}>Photo attached ✓</Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.cameraIconRing}>
+                    <Text style={styles.cameraIcon}>📷</Text>
+                  </View>
+                  <Text style={styles.photoLabel}>Tap to add photo</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-          {/* Save */}
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveBtnText}>+ Add to Wardrobe</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            {/* Name */}
+            <Text style={styles.fieldLabel}>Name *</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder='e.g. "White Uniqlo Tee #5"'
+                placeholderTextColor={Colors.textTertiary}
+              />
+            </View>
+
+            {/* Color */}
+            <Text style={styles.fieldLabel}>Color *</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                style={styles.input}
+                value={color}
+                onChangeText={setColor}
+                placeholder="e.g. Black, White, Navy"
+                placeholderTextColor={Colors.textTertiary}
+              />
+            </View>
+
+            {/* Brand */}
+            <Text style={styles.fieldLabel}>Brand</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                style={styles.input}
+                value={brand}
+                onChangeText={setBrand}
+                placeholder="e.g. Uniqlo, Carhartt"
+                placeholderTextColor={Colors.textTertiary}
+              />
+            </View>
+
+            {/* Category */}
+            <Text style={styles.fieldLabel}>Category</Text>
+            <View style={styles.chipRow}>
+              {CATEGORIES.map((cat) => {
+                const active = cat === category;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setCategory(cat)}
+                    activeOpacity={0.7}
+                  >
+                    {active && <View style={styles.chipGlow} />}
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Location */}
+            <Text style={styles.fieldLabel}>Location</Text>
+            <View style={styles.chipRow}>
+              {LOCATIONS.map((loc) => {
+                const active = loc === location;
+                return (
+                  <TouchableOpacity
+                    key={loc}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setLocation(loc)}
+                    activeOpacity={0.7}
+                  >
+                    {active && <View style={styles.chipGlow} />}
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {LOC_SHORT[loc]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Status */}
+            <Text style={styles.fieldLabel}>Status</Text>
+            <View style={styles.chipRow}>
+              {STATUSES.map((st) => {
+                const active = st === status;
+                const color = STATUS_COLORS[st];
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      styles.chip,
+                      active && {
+                        backgroundColor: color + '20',
+                        borderColor: color + '60',
+                      },
+                    ]}
+                    onPress={() => setStatus(st)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[styles.chipText, active && { color }]}
+                    >
+                      {STATUS_LABELS[st]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Uniform toggle */}
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => setIsUniform(!isUniform)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.toggleBox, isUniform && styles.toggleBoxActive]}>
+                {isUniform && <Text style={styles.toggleCheck}>✓</Text>}
+              </View>
+              <View style={styles.toggleTextArea}>
+                <Text style={styles.toggleLabel}>School Uniform White Tee</Text>
+                <Text style={styles.toggleDesc}>Tag for uniform outfit generation</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Notes */}
+            <Text style={styles.fieldLabel}>Notes</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Any extra details…"
+                placeholderTextColor={Colors.textTertiary}
+                multiline
+              />
+            </View>
+
+            {/* Save */}
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
+              <View style={styles.saveBtnGlow} />
+              <Text style={styles.saveBtnText}>＋  Add to Wardrobe</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#13131A',
+    backgroundColor: Colors.bgBase,
+  },
+  safe: {
+    flex: 1,
   },
   scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: 140,
+  },
+  header: {
+    paddingTop: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  appName: {
+    color: Colors.purple300,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   title: {
-    color: '#F9FAFB',
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: 8,
-    letterSpacing: -0.5,
+    color: Colors.textPrimary,
+    ...Typography.title1,
+    marginBottom: 4,
   },
   subtitle: {
-    color: '#6B7280',
-    fontSize: 13,
-    marginBottom: 16,
+    color: Colors.textSecondary,
+    fontSize: 14,
   },
   photoPicker: {
-    height: 120,
-    backgroundColor: '#1E1E2E',
-    borderRadius: 16,
+    height: 130,
+    backgroundColor: Colors.glassLight,
+    borderRadius: Radii.xl,
     borderWidth: 1.5,
-    borderColor: '#2A2A3E',
+    borderColor: 'rgba(139,92,246,0.30)',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
+    gap: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  photoPickerGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(196,181,253,0.25)',
+  },
+  cameraIconRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(139,92,246,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraIcon: {
+    fontSize: 22,
   },
   photoEmoji: {
     fontSize: 36,
   },
   photoLabel: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 6,
+    color: Colors.textTertiary,
+    fontSize: 13,
+    fontWeight: '500',
   },
   fieldLabel: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 12,
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 8,
+    marginTop: 18,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+  },
+  inputWrap: {
+    borderRadius: Radii.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+    backgroundColor: Colors.glassLight,
   },
   input: {
-    backgroundColor: '#1E1E2E',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#F9FAFB',
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#2A2A3E',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 13,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    letterSpacing: -0.1,
   },
   chipRow: {
     flexDirection: 'row',
@@ -287,64 +381,106 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: '#1E1E2E',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.glassLight,
     borderWidth: 1,
-    borderColor: '#2A2A3E',
+    borderColor: Colors.borderGlass,
+    position: 'relative',
+    overflow: 'hidden',
   },
   chipActive: {
-    backgroundColor: '#8B5CF620',
-    borderColor: '#8B5CF6',
+    backgroundColor: 'rgba(139,92,246,0.20)',
+    borderColor: 'rgba(139,92,246,0.55)',
+  },
+  chipGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(196,181,253,0.4)',
   },
   chipText: {
-    color: '#9CA3AF',
-    fontSize: 12,
+    color: Colors.textTertiary,
+    fontSize: 13,
     fontWeight: '500',
   },
   chipTextActive: {
-    color: '#C4B5FD',
+    color: Colors.purple300,
     fontWeight: '600',
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
-    gap: 10,
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+    backgroundColor: Colors.glassLight,
+    borderRadius: Radii.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
   },
   toggleBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
     borderWidth: 2,
-    borderColor: '#4B5563',
+    borderColor: Colors.textTertiary,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   toggleBoxActive: {
-    borderColor: '#8B5CF6',
-    backgroundColor: '#8B5CF6',
+    borderColor: Colors.purple500,
+    backgroundColor: Colors.purple500,
   },
   toggleCheck: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  toggleTextArea: {
+    flex: 1,
   },
   toggleLabel: {
-    color: '#D1D5DB',
-    fontSize: 13,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  toggleDesc: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+    marginTop: 2,
   },
   saveBtn: {
-    backgroundColor: '#8B5CF6',
-    borderRadius: 14,
-    paddingVertical: 16,
+    backgroundColor: Colors.purple600,
+    borderRadius: Radii.xl,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 28,
+    marginTop: Spacing.xxl,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: Colors.purple500,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  saveBtnGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.35)',
   },
   saveBtnText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

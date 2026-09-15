@@ -9,11 +9,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
+import BackgroundOrbs from '../components/BackgroundOrbs';
 import {
   ClothingItem,
   Location,
   LOCATION_LABELS,
 } from '../types/wardrobe';
+import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
 type FitMode = 'uniform' | 'casual';
 
@@ -22,6 +24,20 @@ interface Outfit {
   bottom: ClothingItem;
   shoes: ClothingItem | null;
 }
+
+const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
+
+const LOC_SHORT: Record<Location, string> = {
+  calamba_home: 'Calamba',
+  batangas_dorm: 'Batangas',
+  in_transit_bag: 'In Bag',
+};
+
+const LOC_ICONS: Record<Location, string> = {
+  calamba_home: '🏠',
+  batangas_dorm: '🏫',
+  in_transit_bag: '🎒',
+};
 
 export default function FitGeneratorScreen() {
   const { items } = useWardrobe();
@@ -40,7 +56,6 @@ export default function FitGeneratorScreen() {
 
   const generateOutfit = useCallback(() => {
     setError(null);
-
     let tops: ClothingItem[];
     if (mode === 'uniform') {
       tops = cleanAtLoc.filter((it) => it.isUniformWhiteTee);
@@ -57,249 +72,331 @@ export default function FitGeneratorScreen() {
       setOutfit(null);
       setError(
         mode === 'uniform'
-          ? `Not enough clean uniform items at ${LOCATION_LABELS[currentLocation]}. Need at least 1 white tee and 1 bottom.`
-          : `Not enough clean tops & bottoms at ${LOCATION_LABELS[currentLocation]}.`,
+          ? `No clean uniform pieces at ${LOC_SHORT[currentLocation]}. Need a white tee + bottom.`
+          : `Not enough clean tops & bottoms at ${LOC_SHORT[currentLocation]}.`,
       );
       return;
     }
-
-    setOutfit({
-      top,
-      bottom,
-      shoes: pickRandom(shoes),
-    });
+    setOutfit({ top, bottom, shoes: pickRandom(shoes) });
   }, [cleanAtLoc, mode, currentLocation]);
 
-  const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
-
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Fit Generator</Text>
-        <Text style={styles.subtitle}>Let DormDrobe pick today's outfit</Text>
-
-        {/* Mode toggle */}
-        <View style={styles.modeRow}>
-          <TouchableOpacity
-            style={[styles.modeBtn, mode === 'uniform' && styles.modeBtnActive]}
-            onPress={() => { setMode('uniform'); setOutfit(null); }}
-          >
-            <Text style={styles.modeEmoji}>🏫</Text>
-            <Text style={[styles.modeBtnText, mode === 'uniform' && styles.modeBtnTextActive]}>
-              School Uniform
-            </Text>
-            <Text style={styles.modeDesc}>White tee + bottoms</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeBtn, mode === 'casual' && styles.modeBtnActive]}
-            onPress={() => { setMode('casual'); setOutfit(null); }}
-          >
-            <Text style={styles.modeEmoji}>🧢</Text>
-            <Text style={[styles.modeBtnText, mode === 'casual' && styles.modeBtnTextActive]}>
-              Casual
-            </Text>
-            <Text style={styles.modeDesc}>Any top + bottom</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Location selector */}
-        <Text style={styles.sectionLabel}>CLOTHES AT:</Text>
-        <View style={styles.locRow}>
-          {LOCATIONS.map((loc) => (
-            <TouchableOpacity
-              key={loc}
-              style={[styles.locChip, currentLocation === loc && styles.locChipActive]}
-              onPress={() => { setCurrentLocation(loc); setOutfit(null); }}
-            >
-              <Text style={[styles.locChipText, currentLocation === loc && styles.locChipTextActive]}>
-                {LOCATION_LABELS[loc]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Generate button */}
-        <TouchableOpacity style={styles.generateBtn} onPress={generateOutfit}>
-          <Text style={styles.generateBtnText}>🎲  Generate Outfit</Text>
-        </TouchableOpacity>
-
-        {/* Error */}
-        {error && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+    <View style={styles.container}>
+      <BackgroundOrbs variant="blue" />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.appName}>DormDrobe</Text>
+            <Text style={styles.title}>Fit Generator</Text>
+            <Text style={styles.subtitle}>Let the app dress you today ✨</Text>
           </View>
-        )}
 
-        {/* Result */}
-        {outfit && (
-          <View style={styles.outfitResult}>
-            <Text style={styles.resultTitle}>Today's Fit 🔥</Text>
-
-            <Text style={styles.slotLabel}>TOP</Text>
-            <ClothingCard item={outfit.top} />
-
-            <Text style={styles.slotLabel}>BOTTOM</Text>
-            <ClothingCard item={outfit.bottom} />
-
-            {outfit.shoes && (
-              <>
-                <Text style={styles.slotLabel}>SHOES</Text>
-                <ClothingCard item={outfit.shoes} />
-              </>
-            )}
-
-            <TouchableOpacity style={styles.reshuffleBtn} onPress={generateOutfit}>
-              <Text style={styles.reshuffleBtnText}>🔄  Reshuffle</Text>
-            </TouchableOpacity>
+          {/* Mode selector */}
+          <View style={styles.modeRow}>
+            {(['uniform', 'casual'] as FitMode[]).map((m) => {
+              const active = m === mode;
+              return (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.modeCard, active && styles.modeCardActive]}
+                  onPress={() => { setMode(m); setOutfit(null); }}
+                  activeOpacity={0.75}
+                >
+                  {active && <View style={styles.modeCardGlow} />}
+                  <Text style={styles.modeEmoji}>{m === 'uniform' ? '🏫' : '🧢'}</Text>
+                  <Text style={[styles.modeTitle, active && styles.modeTitleActive]}>
+                    {m === 'uniform' ? 'Uniform' : 'Casual'}
+                  </Text>
+                  <Text style={styles.modeDesc}>
+                    {m === 'uniform' ? 'White tee + bottoms' : 'Any top + bottom'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* Location */}
+          <Text style={styles.sectionLabel}>CLOTHES AT</Text>
+          <View style={styles.locRow}>
+            {LOCATIONS.map((loc) => {
+              const active = loc === currentLocation;
+              return (
+                <TouchableOpacity
+                  key={loc}
+                  style={[styles.locChip, active && styles.locChipActive]}
+                  onPress={() => { setCurrentLocation(loc); setOutfit(null); }}
+                  activeOpacity={0.7}
+                >
+                  {active && <View style={styles.chipGlow} />}
+                  <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
+                  <Text style={[styles.locText, active && styles.locTextActive]}>
+                    {LOC_SHORT[loc]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Generate button */}
+          <TouchableOpacity style={styles.generateBtn} onPress={generateOutfit} activeOpacity={0.8}>
+            <View style={styles.generateBtnGlow} />
+            <Text style={styles.generateBtnIcon}>✦</Text>
+            <Text style={styles.generateBtnText}>Generate Outfit</Text>
+          </TouchableOpacity>
+
+          {/* Error */}
+          {error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorIcon}>⚠</Text>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Result */}
+          {outfit && (
+            <View style={styles.outfitResult}>
+              <Text style={styles.resultTitle}>Today's Fit 🔥</Text>
+
+              <Text style={styles.slotLabel}>TOP</Text>
+              <ClothingCard item={outfit.top} />
+
+              <Text style={styles.slotLabel}>BOTTOM</Text>
+              <ClothingCard item={outfit.bottom} />
+
+              {outfit.shoes && (
+                <>
+                  <Text style={styles.slotLabel}>SHOES</Text>
+                  <ClothingCard item={outfit.shoes} />
+                </>
+              )}
+
+              <TouchableOpacity style={styles.reshuffleBtn} onPress={generateOutfit} activeOpacity={0.7}>
+                <Text style={styles.reshuffleBtnText}>↺  Reshuffle</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#13131A',
+    backgroundColor: Colors.bgBase,
+  },
+  safe: {
+    flex: 1,
   },
   scroll: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: 120,
+  },
+  header: {
+    paddingTop: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  appName: {
+    color: Colors.blue400,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   title: {
-    color: '#F9FAFB',
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: 8,
-    letterSpacing: -0.5,
+    color: Colors.textPrimary,
+    ...Typography.title1,
+    marginBottom: 4,
   },
   subtitle: {
-    color: '#6B7280',
-    fontSize: 13,
-    marginBottom: 16,
+    color: Colors.textSecondary,
+    fontSize: 14,
+    letterSpacing: -0.1,
   },
   modeRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
-  modeBtn: {
+  modeCard: {
     flex: 1,
-    backgroundColor: '#1E1E2E',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: Colors.glassLight,
+    borderRadius: Radii.xl,
+    padding: Spacing.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2A2A3E',
+    borderColor: Colors.borderGlass,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  modeBtnActive: {
-    backgroundColor: '#8B5CF620',
-    borderColor: '#8B5CF6',
+  modeCardActive: {
+    backgroundColor: 'rgba(59,130,246,0.14)',
+    borderColor: 'rgba(96,165,250,0.45)',
+  },
+  modeCardGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(147,197,253,0.5)',
   },
   modeEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
+    fontSize: 30,
+    marginBottom: 6,
   },
-  modeBtnText: {
-    color: '#9CA3AF',
-    fontSize: 14,
+  modeTitle: {
+    color: Colors.textSecondary,
+    fontSize: 15,
     fontWeight: '600',
+    marginBottom: 3,
   },
-  modeBtnTextActive: {
-    color: '#C4B5FD',
+  modeTitleActive: {
+    color: Colors.blue400,
   },
   modeDesc: {
-    color: '#4B5563',
+    color: Colors.textTertiary,
     fontSize: 11,
-    marginTop: 2,
+    textAlign: 'center',
   },
   sectionLabel: {
-    color: '#6B7280',
+    color: Colors.textTertiary,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: 1.2,
+    marginBottom: 8,
   },
   locRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
   },
   locChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: '#1E1E2E',
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 10,
+    borderRadius: Radii.lg,
+    backgroundColor: Colors.glassLight,
     borderWidth: 1,
-    borderColor: '#2A2A3E',
+    borderColor: Colors.borderGlass,
+    position: 'relative',
+    overflow: 'hidden',
   },
   locChipActive: {
-    backgroundColor: '#8B5CF620',
-    borderColor: '#8B5CF6',
+    backgroundColor: 'rgba(59,130,246,0.18)',
+    borderColor: 'rgba(96,165,250,0.50)',
   },
-  locChipText: {
-    color: '#9CA3AF',
+  chipGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(147,197,253,0.5)',
+  },
+  locIcon: {
+    fontSize: 13,
+  },
+  locText: {
+    color: Colors.textTertiary,
     fontSize: 12,
     fontWeight: '500',
   },
-  locChipTextActive: {
-    color: '#C4B5FD',
+  locTextActive: {
+    color: Colors.blue400,
     fontWeight: '600',
   },
   generateBtn: {
-    backgroundColor: '#8B5CF6',
-    borderRadius: 14,
-    paddingVertical: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.purple600,
+    borderRadius: Radii.xl,
+    paddingVertical: 18,
+    marginBottom: Spacing.xl,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: Colors.purple500,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  generateBtnGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  generateBtnIcon: {
+    color: '#fff',
+    fontSize: 16,
   },
   generateBtnText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   errorBox: {
-    backgroundColor: '#F8717122',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(248,113,113,0.12)',
+    borderRadius: Radii.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
     borderWidth: 1,
-    borderColor: '#F87171',
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
+  errorIcon: {
+    fontSize: 16,
+    color: Colors.statusMisplaced,
   },
   errorText: {
+    flex: 1,
     color: '#FCA5A5',
     fontSize: 13,
+    lineHeight: 19,
   },
   outfitResult: {
     marginTop: 4,
   },
   resultTitle: {
-    color: '#F9FAFB',
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
+    color: Colors.textPrimary,
+    ...Typography.title2,
+    marginBottom: Spacing.lg,
   },
   slotLabel: {
-    color: '#6B7280',
+    color: Colors.textTertiary,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 4,
-    marginTop: 8,
+    letterSpacing: 1.2,
+    marginBottom: 6,
+    marginTop: 10,
   },
   reshuffleBtn: {
-    backgroundColor: '#1E1E2E',
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: Colors.glassLight,
+    borderRadius: Radii.xl,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.xl,
     borderWidth: 1,
-    borderColor: '#2A2A3E',
+    borderColor: Colors.borderGlass,
   },
   reshuffleBtnText: {
-    color: '#C4B5FD',
-    fontSize: 14,
+    color: Colors.purple300,
+    fontSize: 15,
     fontWeight: '600',
+    letterSpacing: -0.1,
   },
 });
