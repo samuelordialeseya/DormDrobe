@@ -7,12 +7,12 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isSupabaseConfigured } from '../config/supabase';
 import { useWardrobe } from '../context/WardrobeContext';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
+import { AppStorage } from '../utils/storage';
 
 export default function SettingsScreen() {
   const { items } = useWardrobe();
@@ -27,7 +27,7 @@ export default function SettingsScreen() {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem('@dormdrobe/clothing');
+            await AppStorage.removeItem('@dormdrobe/clothing');
             Alert.alert('Done', 'Data cleared. Restart the app to reload mock data.');
           },
         },

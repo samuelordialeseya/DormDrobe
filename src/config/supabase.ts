@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { AppStorage } from '../utils/storage';
 
 // ─── Configuration ───────────────────────────────────────────────────
 let rawUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim();
@@ -15,7 +15,7 @@ const SUPABASE_URL = rawUrl;
 
 /**
  * `true` when valid Supabase credentials are provided via environment.
- * When `false`, the app falls back to local AsyncStorage + mock data.
+ * When `false`, the app falls back to local storage + mock data.
  */
 export const isSupabaseConfigured: boolean =
   SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
@@ -30,7 +30,7 @@ export const supabase: SupabaseClient = createClient(
   SUPABASE_ANON_KEY || 'placeholder-key',
   {
     auth: {
-      storage: AsyncStorage,
+      storage: AppStorage,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,

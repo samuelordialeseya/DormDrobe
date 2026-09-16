@@ -7,7 +7,6 @@ import React, {
   useCallback,
   type ReactNode,
 } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ClothingItem,
   Location,
@@ -16,6 +15,7 @@ import {
 } from '../types/wardrobe';
 import { MOCK_CLOTHING } from '../utils/mockData';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
+import { AppStorage } from '../utils/storage';
 
 // ─── Storage key ─────────────────────────────────────────────────────
 const STORAGE_KEY = '@dormdrobe/clothing';
@@ -105,7 +105,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
   // ── Persist helpers ────────────────────────────────────────────────
   const persist = useCallback(async (next: ClothingItem[]) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      await AppStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch (e) {
       console.warn('[DormDrobe] Failed to persist items', e);
     }
@@ -131,7 +131,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         }
 
         // Local storage / first launch
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const stored = await AppStorage.getItem(STORAGE_KEY);
         if (stored) {
           setItems(JSON.parse(stored));
         } else {
