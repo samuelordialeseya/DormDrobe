@@ -9,6 +9,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -25,6 +27,7 @@ import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import { useWardrobe } from '../context/WardrobeContext';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
+import { removeImageBackground } from '../utils/backgroundRemoval';
 
 const CATEGORIES: Category[] = ['tops', 'bottoms', 'underwear', 'footwear', 'outerwear', 'accessories'];
 const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
@@ -46,24 +49,59 @@ export default function AddItemScreen() {
   const [location, setLocation] = useState<Location>('batangas_dorm');
   const [status, setStatus] = useState<Status>('clean');
   const [isUniform, setIsUniform] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+
+  // Image & non-AI background removal states
+  const [originalUri, setOriginalUri] = useState<string | null>(null);
+  const [cutoutUri, setCutoutUri] = useState<string | null>(null);
+  const [isCutoutActive, setIsCutoutActive] = useState(false);
+  const [isProcessingBg, setIsProcessingBg] = useState(false);
+  const [bgTolerance, setBgTolerance] = useState(28);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      setOriginalUri(uri);
+      setCutoutUri(null);
+      setIsCutoutActive(false);
+    }
+  };
+
+  const handleRemoveBackground = async (toleranceValue = bgTolerance) => {
+    if (!originalUri) return;
+    setIsProcessingBg(true);
+    try {
+      const result = await removeImageBackground(originalUri, {
+        tolerance: toleranceValue,
+        feather: 14,
+      });
+      setCutoutUri(result);
+      setIsCutoutActive(true);
+      setBgTolerance(toleranceValue);
+    } catch (err) {
+      Alert.alert('Error', 'Could not process background cutout.');
+    } finally {
+      setIsProcessingBg(false);
     }
   };
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Missing Name', 'Give your clothing item a name.'); return; }
-    if (!color.trim()) { Alert.alert('Missing Color', 'What color is it?'); return; }
+    if (!name.trim()) {
+      Alert.alert('Missing Name', 'Give your clothing item a name.');
+      return;
+    }
+    if (!color.trim()) {
+      Alert.alert('Missing Color', 'What color is it?');
+      return;
+    }
+
+    const finalImage = isCutoutActive && cutoutUri ? cutoutUri : originalUri;
 
     addItem({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -73,23 +111,37 @@ export default function AddItemScreen() {
       brand: brand.trim() || null,
       location,
       status,
-      imageUrl: imageUri,
+      imageUrl: finalImage,
       isUniformWhiteTee: isUniform,
       lastWornAt: null,
       notes: notes.trim(),
       createdAt: new Date().toISOString(),
     });
 
-    Alert.alert('Added', `${name} has been added to your wardrobe.`);
-    setName(''); setColor(''); setBrand(''); setImageUri(null); setNotes(''); setIsUniform(false);
+    Alert.alert('Added! ✨', `${name} has been added to your wardrobe.`);
+    setName('');
+    setColor('');
+    setBrand('');
+    setOriginalUri(null);
+    setCutoutUri(null);
+    setIsCutoutActive(false);
+    setNotes('');
+    setIsUniform(false);
   };
+
+  const activeImagePreview = isCutoutActive && cutoutUri ? cutoutUri : originalUri;
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Header */}
             <FadeSlideIn delay={0} fromY={-10}>
               <View style={styles.header}>
@@ -98,29 +150,134 @@ export default function AddItemScreen() {
               </View>
             </FadeSlideIn>
 
-            {/* Photo picker */}
+            {/* Photo Picker & Non-AI Background Cutout Card */}
             <FadeSlideIn delay={60} fromY={12}>
-              <PressableScale scaleTo={0.97} onPress={pickImage}>
-                <View style={styles.photoPicker}>
-                  <View style={styles.specular} />
-                  {imageUri ? (
-                    <>
-                      <Text style={styles.photoEmoji}>📸</Text>
-                      <Text style={styles.photoLabel}>Photo attached</Text>
-                    </>
-                  ) : (
-                    <>
+              <View style={styles.photoCard}>
+                <View style={styles.specular} />
+
+                {activeImagePreview ? (
+                  <View style={styles.previewContainer}>
+                    <View
+                      style={[
+                        styles.imageFrame,
+                        isCutoutActive && styles.cutoutFrame,
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: activeImagePreview }}
+                        style={styles.previewImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+
+                    {/* Cutout Actions */}
+                    <View style={styles.cutoutActions}>
+                      <View style={styles.cutoutBtnRow}>
+                        <PressableScale
+                          onPress={() => handleRemoveBackground()}
+                          scaleTo={0.94}
+                          style={styles.removeBgBtn}
+                          disabled={isProcessingBg}
+                        >
+                          {isProcessingBg ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.removeBgText}>
+                              {cutoutUri ? '↺ Re-Cutout' : '✨ Remove Background (Non-AI)'}
+                            </Text>
+                          )}
+                        </PressableScale>
+
+                        <PressableScale onPress={pickImage} scaleTo={0.94}>
+                          <View style={styles.changePhotoBtn}>
+                            <Text style={styles.changePhotoText}>Change</Text>
+                          </View>
+                        </PressableScale>
+                      </View>
+
+                      {/* Toggle Cutout vs Original */}
+                      {cutoutUri && (
+                        <View style={styles.cutoutControls}>
+                          <View style={styles.viewToggleRow}>
+                            <TouchableOpacity
+                              onPress={() => setIsCutoutActive(false)}
+                              style={[
+                                styles.viewToggleBtn,
+                                !isCutoutActive && styles.viewToggleBtnActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.viewToggleText,
+                                  !isCutoutActive && styles.viewToggleTextActive,
+                                ]}
+                              >
+                                Original
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => setIsCutoutActive(true)}
+                              style={[
+                                styles.viewToggleBtn,
+                                isCutoutActive && styles.viewToggleBtnActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.viewToggleText,
+                                  isCutoutActive && styles.viewToggleTextActive,
+                                ]}
+                              >
+                                Cutout PNG
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Sensitivity Pills */}
+                          <View style={styles.toleranceRow}>
+                            <Text style={styles.toleranceLabel}>Tolerance:</Text>
+                            {[18, 28, 40].map((tol) => (
+                              <TouchableOpacity
+                                key={tol}
+                                onPress={() => handleRemoveBackground(tol)}
+                                style={[
+                                  styles.tolBtn,
+                                  bgTolerance === tol && styles.tolBtnActive,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.tolText,
+                                    bgTolerance === tol && styles.tolTextActive,
+                                  ]}
+                                >
+                                  {tol === 18 ? 'Light' : tol === 28 ? 'Med' : 'Aggressive'}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ) : (
+                  <PressableScale scaleTo={0.97} onPress={pickImage}>
+                    <View style={styles.emptyPhotoPicker}>
                       <View style={styles.cameraIconRing}>
                         <Text style={styles.cameraIcon}>📷</Text>
                       </View>
-                      <Text style={styles.photoLabel}>Tap to add photo</Text>
-                    </>
-                  )}
-                </View>
-              </PressableScale>
+                      <Text style={styles.photoLabel}>Tap to snap or upload photo</Text>
+                      <Text style={styles.photoSubLabel}>
+                        Auto non-AI edge background removal supported
+                      </Text>
+                    </View>
+                  </PressableScale>
+                )}
+              </View>
             </FadeSlideIn>
 
-            {/* Fields */}
+            {/* Name */}
             <FadeSlideIn delay={100} fromY={12}>
               <Text style={styles.fieldLabel}>Name *</Text>
               <View style={styles.inputWrap}>
@@ -133,40 +290,47 @@ export default function AddItemScreen() {
                 />
               </View>
 
+              {/* Color */}
               <Text style={styles.fieldLabel}>Color *</Text>
               <View style={styles.inputWrap}>
                 <TextInput
                   style={styles.input}
                   value={color}
                   onChangeText={setColor}
-                  placeholder="e.g. Black, White, Navy"
+                  placeholder='e.g. "White", "Navy", "Khaki"'
                   placeholderTextColor={Colors.textTertiary}
                 />
               </View>
 
-              <Text style={styles.fieldLabel}>Brand</Text>
+              {/* Brand */}
+              <Text style={styles.fieldLabel}>Brand (Optional)</Text>
               <View style={styles.inputWrap}>
                 <TextInput
                   style={styles.input}
                   value={brand}
                   onChangeText={setBrand}
-                  placeholder="e.g. Uniqlo, Carhartt"
+                  placeholder='e.g. "Uniqlo", "Zara", "Nike"'
                   placeholderTextColor={Colors.textTertiary}
                 />
               </View>
             </FadeSlideIn>
 
             {/* Category */}
-            <FadeSlideIn delay={140} fromY={10}>
+            <FadeSlideIn delay={140} fromY={12}>
               <Text style={styles.fieldLabel}>Category</Text>
               <View style={styles.chipRow}>
                 {CATEGORIES.map((cat) => {
                   const active = cat === category;
                   return (
-                    <PressableScale key={cat} scaleTo={0.93} onPress={() => setCategory(cat)}>
+                    <PressableScale
+                      key={cat}
+                      scaleTo={0.93}
+                      onPress={() => setCategory(cat)}
+                    >
                       <View style={[styles.chip, active && styles.chipActive]}>
+                        <Text style={styles.chipIcon}>{CATEGORY_ICONS[cat]}</Text>
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {CATEGORY_ICONS[cat]} {CATEGORY_LABELS[cat]}
+                          {CATEGORY_LABELS[cat]}
                         </Text>
                       </View>
                     </PressableScale>
@@ -176,13 +340,17 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Location */}
-            <FadeSlideIn delay={170} fromY={10}>
+            <FadeSlideIn delay={180} fromY={12}>
               <Text style={styles.fieldLabel}>Location</Text>
               <View style={styles.chipRow}>
                 {LOCATIONS.map((loc) => {
                   const active = loc === location;
                   return (
-                    <PressableScale key={loc} scaleTo={0.93} onPress={() => setLocation(loc)}>
+                    <PressableScale
+                      key={loc}
+                      scaleTo={0.93}
+                      onPress={() => setLocation(loc)}
+                    >
                       <View style={[styles.chip, active && styles.chipActive]}>
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
                           {LOC_SHORT[loc]}
@@ -195,19 +363,41 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Status */}
-            <FadeSlideIn delay={200} fromY={10}>
+            <FadeSlideIn delay={220} fromY={12}>
               <Text style={styles.fieldLabel}>Status</Text>
               <View style={styles.chipRow}>
                 {STATUSES.map((st) => {
                   const active = st === status;
-                  const statusColor = STATUS_COLORS[st];
                   return (
-                    <PressableScale key={st} scaleTo={0.93} onPress={() => setStatus(st)}>
-                      <View style={[
-                        styles.chip,
-                        active && { backgroundColor: statusColor + '18', borderColor: statusColor + '60' },
-                      ]}>
-                        <Text style={[styles.chipText, active && { color: statusColor }]}>
+                    <PressableScale
+                      key={st}
+                      scaleTo={0.93}
+                      onPress={() => setStatus(st)}
+                    >
+                      <View
+                        style={[
+                          styles.chip,
+                          active && {
+                            backgroundColor: STATUS_COLORS[st] + '22',
+                            borderColor: STATUS_COLORS[st] + '66',
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: STATUS_COLORS[st] },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.chipText,
+                            active && {
+                              color: STATUS_COLORS[st],
+                              fontWeight: '600',
+                            },
+                          ]}
+                        >
                           {STATUS_LABELS[st]}
                         </Text>
                       </View>
@@ -217,46 +407,60 @@ export default function AddItemScreen() {
               </View>
             </FadeSlideIn>
 
-            {/* Uniform toggle */}
-            <FadeSlideIn delay={230} fromY={10}>
-              <PressableScale scaleTo={0.98} onPress={() => setIsUniform(!isUniform)}>
-                <View style={styles.toggleRow}>
-                  <View style={[styles.toggleBox, isUniform && styles.toggleBoxActive]}>
-                    {isUniform && <Text style={styles.toggleCheck}>✓</Text>}
+            {/* School uniform toggle */}
+            <FadeSlideIn delay={260} fromY={12}>
+              <PressableScale
+                scaleTo={0.97}
+                onPress={() => setIsUniform(!isUniform)}
+              >
+                <View style={[styles.toggleRow, isUniform && styles.toggleRowActive]}>
+                  <View style={styles.toggleLeft}>
+                    <Text style={styles.toggleTitle}>School Uniform Staple</Text>
+                    <Text style={styles.toggleSub}>
+                      Tag as uniform white tee for fast daily outfit generator
+                    </Text>
                   </View>
-                  <View style={styles.toggleTextArea}>
-                    <Text style={styles.toggleLabel}>School Uniform White Tee</Text>
-                    <Text style={styles.toggleDesc}>Tag for uniform outfit generation</Text>
+                  <View
+                    style={[
+                      styles.toggleIndicator,
+                      isUniform && styles.toggleIndicatorOn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleThumb,
+                        isUniform && styles.toggleThumbOn,
+                      ]}
+                    />
                   </View>
                 </View>
               </PressableScale>
             </FadeSlideIn>
 
             {/* Notes */}
-            <FadeSlideIn delay={260} fromY={10}>
+            <FadeSlideIn delay={280} fromY={12}>
               <Text style={styles.fieldLabel}>Notes</Text>
-              <View style={styles.inputWrap}>
+              <View style={[styles.inputWrap, styles.textAreaWrap]}>
                 <TextInput
-                  style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+                  style={[styles.input, styles.textArea]}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="Any extra details…"
+                  placeholder="e.g. Airism, dry clean only, slightly loose fit"
                   placeholderTextColor={Colors.textTertiary}
                   multiline
+                  numberOfLines={3}
                 />
               </View>
             </FadeSlideIn>
 
-            {/* Save */}
-            <FadeSlideIn delay={290} fromY={14}>
-              <PressableScale scaleTo={0.97} onPress={handleSave}>
+            {/* Save Button */}
+            <FadeSlideIn delay={300} fromY={14}>
+              <PressableScale scaleTo={0.96} onPress={handleSave}>
                 <View style={styles.saveBtn}>
-                  <View style={styles.saveSpecular} />
-                  <Text style={styles.saveBtnText}>Add to Wardrobe</Text>
+                  <Text style={styles.saveBtnText}>Save to Wardrobe</Text>
                 </View>
               </PressableScale>
             </FadeSlideIn>
-
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -267,28 +471,46 @@ export default function AddItemScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgBase },
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: Spacing.xl, paddingBottom: 140 },
-  header: { paddingTop: Spacing.md, marginBottom: Spacing.xl },
-  title: { color: Colors.textPrimary, ...Typography.title1, marginBottom: 4 },
-  subtitle: { color: Colors.textTertiary, fontSize: 14 },
-  photoPicker: {
-    height: 120,
+  scroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 130,
+  },
+  header: {
+    paddingTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  title: {
+    color: Colors.textPrimary,
+    ...Typography.title1,
+    fontSize: 24,
+    marginBottom: 2,
+  },
+  subtitle: {
+    color: Colors.textTertiary,
+    fontSize: 13,
+  },
+  photoCard: {
     backgroundColor: Colors.glassLight,
     borderRadius: Radii.xl,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-    gap: 8,
+    borderColor: Colors.borderGlass,
     position: 'relative',
     overflow: 'hidden',
   },
   specular: {
     position: 'absolute',
-    top: 0, left: 0, right: 0,
+    top: 0,
+    left: 0,
+    right: 0,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  emptyPhotoPicker: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+    gap: 8,
   },
   cameraIconRing: {
     width: 48,
@@ -301,14 +523,144 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cameraIcon: { fontSize: 20 },
-  photoEmoji: { fontSize: 32 },
-  photoLabel: { color: Colors.textTertiary, fontSize: 13, fontWeight: '500' },
-  fieldLabel: {
+  photoLabel: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  photoSubLabel: {
     color: Colors.textTertiary,
     fontSize: 11,
+  },
+  previewContainer: {
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  imageFrame: {
+    width: 180,
+    height: 180,
+    borderRadius: Radii.lg,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  cutoutFrame: {
+    // Checkered transparent representation
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  previewImage: {
+    width: 170,
+    height: 170,
+  },
+  cutoutActions: {
+    width: '100%',
+    gap: 8,
+  },
+  cutoutBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  removeBgBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: Radii.pill,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  removeBgText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '700',
-    marginBottom: 8,
-    marginTop: 18,
+  },
+  changePhotoBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.glassLight,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  changePhotoText: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cutoutControls: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: Radii.lg,
+    padding: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  viewToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: Radii.pill,
+    padding: 2,
+  },
+  viewToggleBtn: {
+    flex: 1,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+  },
+  viewToggleBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  viewToggleText: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  viewToggleTextActive: {
+    color: '#FFFFFF',
+  },
+  toleranceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  toleranceLabel: {
+    color: Colors.textTertiary,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  tolBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.glassLight,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  tolBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  tolText: {
+    color: Colors.textTertiary,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  tolTextActive: {
+    color: '#FFFFFF',
+  },
+  fieldLabel: {
+    color: Colors.textTertiary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 6,
+    marginTop: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -321,68 +673,109 @@ const styles = StyleSheet.create({
   },
   input: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 13,
+    paddingVertical: 12,
     color: Colors.textPrimary,
-    fontSize: 15,
-    letterSpacing: -0.1,
+    fontSize: 14,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: Radii.pill,
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  chipActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
-  chipText: { color: Colors.textTertiary, fontSize: 13, fontWeight: '500' },
-  chipTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  chipActive: {
+    backgroundColor: Colors.glassBright,
+    borderColor: Colors.borderGlassBright,
+  },
+  chipIcon: { fontSize: 12 },
+  chipText: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  chipTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    marginTop: Spacing.xl,
+    justifyContent: 'space-between',
+    marginTop: Spacing.lg,
     backgroundColor: Colors.glassLight,
     borderRadius: Radii.xl,
-    padding: Spacing.lg,
+    padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  toggleBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: Colors.textTertiary,
-    alignItems: 'center',
+  toggleRowActive: {
+    borderColor: 'rgba(10,132,255,0.35)',
+    backgroundColor: 'rgba(10,132,255,0.08)',
+  },
+  toggleLeft: { flex: 1 },
+  toggleTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  toggleSub: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  toggleIndicator: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    padding: 2,
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  toggleBoxActive: { borderColor: Colors.accent, backgroundColor: Colors.accent },
-  toggleCheck: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  toggleTextArea: { flex: 1 },
-  toggleLabel: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600', letterSpacing: -0.1 },
-  toggleDesc: { color: Colors.textTertiary, fontSize: 12, marginTop: 2 },
+  toggleIndicatorOn: {
+    backgroundColor: '#0A84FF',
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+  },
+  toggleThumbOn: {
+    alignSelf: 'flex-end',
+  },
+  textAreaWrap: {
+    minHeight: 70,
+  },
+  textArea: {
+    height: 70,
+    textAlignVertical: 'top',
+  },
   saveBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: Radii.xl,
-    paddingVertical: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.pill,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: Spacing.xxl,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    marginTop: Spacing.xl,
   },
-  saveSpecular: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+  saveBtnText: {
+    color: '#000000',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
 });

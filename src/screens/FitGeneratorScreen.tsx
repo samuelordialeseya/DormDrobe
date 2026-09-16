@@ -1,196 +1,299 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
+  FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWardrobe } from '../context/WardrobeContext';
-import ClothingCard from '../components/ClothingCard';
+import OutfitRowSlider from '../components/OutfitRowSlider';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
-import {
-  ClothingItem,
-  Location,
-  LOCATION_LABELS,
-} from '../types/wardrobe';
+import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
-type FitMode = 'uniform' | 'casual';
-
-interface Outfit {
-  top: ClothingItem;
-  bottom: ClothingItem;
-  shoes: ClothingItem | null;
-}
-
-const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
-const LOC_SHORT: Record<Location, string> = {
-  calamba_home: 'Calamba',
-  batangas_dorm: 'Batangas',
-  in_transit_bag: 'In Bag',
-};
-const LOC_ICONS: Record<Location, string> = {
-  calamba_home: '🏠',
-  batangas_dorm: '🏫',
-  in_transit_bag: '🎒',
-};
-
 export default function FitGeneratorScreen() {
-  const { items } = useWardrobe();
-  const [mode, setMode] = useState<FitMode>('uniform');
-  const [currentLocation, setCurrentLocation] = useState<Location>('batangas_dorm');
-  const [outfit, setOutfit] = useState<Outfit | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { items, updateItem } = useWardrobe();
 
-  const cleanAtLoc = useMemo(
-    () => items.filter((it) => it.location === currentLocation && it.status === 'clean'),
-    [items, currentLocation],
-  );
+  // Active filters
+  const [selectedLoc, setSelectedLoc] = useState<Location>('batangas_dorm');
+  const [cleanOnly, setCleanOnly] = useState(true);
+  const [uniformOnly, setUniformOnly] = useState(false);
 
-  const pickRandom = <T,>(arr: T[]): T | null =>
-    arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : null;
+  // Row selection indices
+  const [topIdx, setTopIdx] = useState(0);
+  const [bottomIdx, setBottomIdx] = useState(0);
+  const [shoesIdx, setShoesIdx] = useState(0);
+  const [accIdx, setAccIdx] = useState(0);
 
-  const generateOutfit = useCallback(() => {
-    setError(null);
-    let tops: ClothingItem[];
-    if (mode === 'uniform') {
-      tops = cleanAtLoc.filter((it) => it.isUniformWhiteTee);
-    } else {
-      tops = cleanAtLoc.filter((it) => it.category === 'tops');
+  // Row lock states
+  const [lockTop, setLockTop] = useState(false);
+  const [lockBottom, setLockBottom] = useState(false);
+  const [lockShoes, setLockShoes] = useState(false);
+  const [lockAcc, setLockAcc] = useState(false);
+
+  // FlatList refs for programmatic scrolling on shuffle
+  const topListRef = useRef<FlatList>(null);
+  const bottomListRef = useRef<FlatList>(null);
+  const shoesListRef = useRef<FlatList>(null);
+  const accListRef = useRef<FlatList>(null);
+
+  // Filter items for each row
+  const availableItems = useMemo(() => {
+    return items.filter((item) => {
+      if (item.location !== selectedLoc) return false;
+      if (cleanOnly && item.status !== 'clean') return false;
+      return true;
+    });
+  }, [items, selectedLoc, cleanOnly]);
+
+  const tops = useMemo(() => {
+    return availableItems.filter((i) => {
+      if (uniformOnly && !i.isUniformWhiteTee) return false;
+      return i.category === 'tops' || i.category === 'outerwear';
+    });
+  }, [availableItems, uniformOnly]);
+
+  const bottoms = useMemo(() => {
+    return availableItems.filter((i) => i.category === 'bottoms');
+  }, [availableItems]);
+
+  const shoes = useMemo(() => {
+    return availableItems.filter((i) => i.category === 'footwear');
+  }, [availableItems]);
+
+  const accessories = useMemo(() => {
+    return availableItems.filter((i) => i.category === 'accessories');
+  }, [availableItems]);
+
+  // Shuffle all unlocked rows
+  const handleShuffle = () => {
+    const CARD_FULL_WIDTH = 230;
+
+    if (!lockTop && tops.length > 1) {
+      const next = Math.floor(Math.random() * tops.length);
+      setTopIdx(next);
+      topListRef.current?.scrollToOffset({
+        offset: next * CARD_FULL_WIDTH,
+        animated: true,
+      });
     }
-    const bottoms = cleanAtLoc.filter((it) => it.category === 'bottoms');
-    const shoes = cleanAtLoc.filter((it) => it.category === 'footwear');
 
-    const top = pickRandom(tops);
-    const bottom = pickRandom(bottoms);
+    if (!lockBottom && bottoms.length > 1) {
+      const next = Math.floor(Math.random() * bottoms.length);
+      setBottomIdx(next);
+      bottomListRef.current?.scrollToOffset({
+        offset: next * CARD_FULL_WIDTH,
+        animated: true,
+      });
+    }
 
-    if (!top || !bottom) {
-      setOutfit(null);
-      setError(
-        mode === 'uniform'
-          ? `No clean uniform pieces at ${LOC_SHORT[currentLocation]}.`
-          : `Not enough clean tops & bottoms at ${LOC_SHORT[currentLocation]}.`,
-      );
+    if (!lockShoes && shoes.length > 1) {
+      const next = Math.floor(Math.random() * shoes.length);
+      setShoesIdx(next);
+      shoesListRef.current?.scrollToOffset({
+        offset: next * CARD_FULL_WIDTH,
+        animated: true,
+      });
+    }
+
+    if (!lockAcc && accessories.length > 1) {
+      const next = Math.floor(Math.random() * accessories.length);
+      setAccIdx(next);
+      accListRef.current?.scrollToOffset({
+        offset: next * CARD_FULL_WIDTH,
+        animated: true,
+      });
+    }
+  };
+
+  // Mark current fit as worn
+  const handleWearFit = () => {
+    const activeTop = tops[topIdx];
+    const activeBottom = bottoms[bottomIdx];
+    const activeShoes = shoes[shoesIdx];
+    const activeAcc = accessories[accIdx];
+
+    const wornItems = [activeTop, activeBottom, activeShoes, activeAcc].filter(Boolean);
+
+    if (wornItems.length === 0) {
+      Alert.alert('No Items', 'No items selected to wear.');
       return;
     }
-    setOutfit({ top, bottom, shoes: pickRandom(shoes) });
-  }, [cleanAtLoc, mode, currentLocation]);
+
+    wornItems.forEach((it) => {
+      updateItem(it.id, {
+        status: 'worn',
+        lastWornAt: new Date().toISOString(),
+      });
+    });
+
+    Alert.alert(
+      'Outfit Worn! ✨',
+      `Marked ${wornItems.length} items as worn. They are now tracked in your laundry cycle.`
+    );
+  };
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <FadeSlideIn delay={0} fromY={-10}>
-            <View style={styles.header}>
-              <Text style={styles.title}>Fit Generator</Text>
-              <Text style={styles.subtitle}>Let DormDrobe dress you today</Text>
+        {/* Top Header & Controls */}
+        <FadeSlideIn delay={0} fromY={-6}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.title}>Fit Canvas</Text>
+              <Text style={styles.subtitle}>Swipe rows to mix & match</Text>
             </View>
-          </FadeSlideIn>
 
-          {/* Mode selector */}
-          <FadeSlideIn delay={60} fromY={12}>
-            <View style={styles.modeRow}>
-              {(['uniform', 'casual'] as FitMode[]).map((m) => {
-                const active = m === mode;
-                return (
-                  <PressableScale
-                    key={m}
-                    scaleTo={0.95}
-                    onPress={() => { setMode(m); setOutfit(null); }}
-                    style={[styles.modeCard, active && styles.modeCardActive]}
-                  >
-                    <Text style={styles.modeEmoji}>{m === 'uniform' ? '🏫' : '🧢'}</Text>
-                    <Text style={[styles.modeTitle, active && styles.modeTitleActive]}>
-                      {m === 'uniform' ? 'Uniform' : 'Casual'}
-                    </Text>
-                    <Text style={styles.modeDesc}>
-                      {m === 'uniform' ? 'White tee + bottoms' : 'Any top + bottom'}
-                    </Text>
-                  </PressableScale>
-                );
-              })}
+            {/* Location selector */}
+            <View style={styles.locTabs}>
+              <PressableScale
+                onPress={() => setSelectedLoc('batangas_dorm')}
+                scaleTo={0.94}
+                style={[
+                  styles.locTab,
+                  selectedLoc === 'batangas_dorm' && styles.locTabActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.locTabText,
+                    selectedLoc === 'batangas_dorm' && styles.locTabTextActive,
+                  ]}
+                >
+                  🏫 Dorm
+                </Text>
+              </PressableScale>
+
+              <PressableScale
+                onPress={() => setSelectedLoc('calamba_home')}
+                scaleTo={0.94}
+                style={[
+                  styles.locTab,
+                  selectedLoc === 'calamba_home' && styles.locTabActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.locTabText,
+                    selectedLoc === 'calamba_home' && styles.locTabTextActive,
+                  ]}
+                >
+                  🏠 Home
+                </Text>
+              </PressableScale>
             </View>
-          </FadeSlideIn>
+          </View>
 
-          {/* Location */}
-          <FadeSlideIn delay={100} fromY={10}>
-            <Text style={styles.sectionLabel}>CLOTHES AT</Text>
-            <View style={styles.locRow}>
-              {LOCATIONS.map((loc) => {
-                const active = loc === currentLocation;
-                return (
-                  <PressableScale
-                    key={loc}
-                    scaleTo={0.94}
-                    onPress={() => { setCurrentLocation(loc); setOutfit(null); }}
-                    style={[styles.locChip, active && styles.locChipActive]}
-                  >
-                    <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
-                    <Text style={[styles.locText, active && styles.locTextActive]}>
-                      {LOC_SHORT[loc]}
-                    </Text>
-                  </PressableScale>
-                );
-              })}
-            </View>
-          </FadeSlideIn>
-
-          {/* Generate button */}
-          <FadeSlideIn delay={140} fromY={10}>
-            <PressableScale scaleTo={0.97} onPress={generateOutfit}>
-              <View style={styles.generateBtn}>
-                <View style={styles.btnSpecular} />
-                <Text style={styles.generateBtnText}>Generate Outfit</Text>
-              </View>
+          {/* Quick Filters Strip */}
+          <View style={styles.filterStrip}>
+            <PressableScale
+              onPress={() => setCleanOnly(!cleanOnly)}
+              scaleTo={0.94}
+              style={[styles.filterChip, cleanOnly && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterText, cleanOnly && styles.filterTextActive]}>
+                🧼 Clean Only
+              </Text>
             </PressableScale>
+
+            <PressableScale
+              onPress={() => setUniformOnly(!uniformOnly)}
+              scaleTo={0.94}
+              style={[styles.filterChip, uniformOnly && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterText, uniformOnly && styles.filterTextActive]}>
+                👕 Uniform Tees
+              </Text>
+            </PressableScale>
+          </View>
+        </FadeSlideIn>
+
+        {/* 4-Row Horizontal Slider Builder */}
+        <ScrollView
+          style={styles.rowsScroll}
+          contentContainerStyle={styles.rowsContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Row 1: Tops */}
+          <FadeSlideIn delay={40} fromY={8}>
+            <OutfitRowSlider
+              title="TOPS & OUTERWEAR"
+              icon="🧥"
+              items={tops}
+              selectedIndex={topIdx}
+              onSelectIndex={setTopIdx}
+              isLocked={lockTop}
+              onToggleLock={() => setLockTop(!lockTop)}
+              scrollRef={topListRef}
+            />
           </FadeSlideIn>
 
-          {/* Error */}
-          {error && (
-            <FadeSlideIn delay={0} fromY={6}>
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            </FadeSlideIn>
-          )}
+          {/* Row 2: Bottoms */}
+          <FadeSlideIn delay={80} fromY={8}>
+            <OutfitRowSlider
+              title="BOTTOMS & PANTS"
+              icon="👖"
+              items={bottoms}
+              selectedIndex={bottomIdx}
+              onSelectIndex={setBottomIdx}
+              isLocked={lockBottom}
+              onToggleLock={() => setLockBottom(!lockBottom)}
+              scrollRef={bottomListRef}
+            />
+          </FadeSlideIn>
 
-          {/* Result */}
-          {outfit && (
-            <View style={styles.outfitResult}>
-              <FadeSlideIn delay={0} fromY={8}>
-                <Text style={styles.resultTitle}>Today's Fit</Text>
-              </FadeSlideIn>
+          {/* Row 3: Shoes */}
+          <FadeSlideIn delay={120} fromY={8}>
+            <OutfitRowSlider
+              title="FOOTWEAR"
+              icon="👟"
+              items={shoes}
+              selectedIndex={shoesIdx}
+              onSelectIndex={setShoesIdx}
+              isLocked={lockShoes}
+              onToggleLock={() => setLockShoes(!lockShoes)}
+              scrollRef={shoesListRef}
+            />
+          </FadeSlideIn>
 
-              <FadeSlideIn delay={40} fromY={10}>
-                <Text style={styles.slotLabel}>TOP</Text>
-                <ClothingCard item={outfit.top} delay={0} />
-              </FadeSlideIn>
+          {/* Row 4: Accessories */}
+          <FadeSlideIn delay={160} fromY={8}>
+            <OutfitRowSlider
+              title="BAGS & ACCESSORIES"
+              icon="🎒"
+              items={accessories}
+              selectedIndex={accIdx}
+              onSelectIndex={setAccIdx}
+              isLocked={lockAcc}
+              onToggleLock={() => setLockAcc(!lockAcc)}
+              scrollRef={accListRef}
+            />
+          </FadeSlideIn>
 
-              <FadeSlideIn delay={80} fromY={10}>
-                <Text style={styles.slotLabel}>BOTTOM</Text>
-                <ClothingCard item={outfit.bottom} delay={0} />
-              </FadeSlideIn>
+          {/* Bottom Action Buttons */}
+          <FadeSlideIn delay={200} fromY={10}>
+            <View style={styles.bottomBar}>
+              <PressableScale
+                onPress={handleShuffle}
+                scaleTo={0.96}
+                style={styles.shuffleBtn}
+              >
+                <Text style={styles.shuffleText}>🎲  Shuffle Unlocked</Text>
+              </PressableScale>
 
-              {outfit.shoes && (
-                <FadeSlideIn delay={120} fromY={10}>
-                  <Text style={styles.slotLabel}>SHOES</Text>
-                  <ClothingCard item={outfit.shoes} delay={0} />
-                </FadeSlideIn>
-              )}
-
-              <FadeSlideIn delay={160} fromY={10}>
-                <PressableScale scaleTo={0.96} onPress={generateOutfit}>
-                  <View style={styles.reshuffleBtn}>
-                    <Text style={styles.reshuffleBtnText}>↺  Reshuffle</Text>
-                  </View>
-                </PressableScale>
-              </FadeSlideIn>
+              <PressableScale
+                onPress={handleWearFit}
+                scaleTo={0.96}
+                style={styles.wearBtn}
+              >
+                <Text style={styles.wearText}>Wear Today ✨</Text>
+              </PressableScale>
             </View>
-          )}
+          </FadeSlideIn>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -198,106 +301,127 @@ export default function FitGeneratorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgBase },
-  safe: { flex: 1 },
-  scroll: { paddingHorizontal: Spacing.xl, paddingBottom: 120 },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bgBase,
+  },
+  safe: {
+    flex: 1,
+  },
   header: {
-    paddingTop: Spacing.md,
-    marginBottom: Spacing.xl,
-  },
-  title: { color: Colors.textPrimary, ...Typography.title1, marginBottom: 4 },
-  subtitle: { color: Colors.textTertiary, fontSize: 14 },
-  modeRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.xl },
-  modeCard: {
-    flex: 1,
-    backgroundColor: Colors.glassLight,
-    borderRadius: Radii.xl,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderGlass,
-  },
-  modeCardActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
-  },
-  modeEmoji: { fontSize: 30, marginBottom: 6 },
-  modeTitle: { color: Colors.textTertiary, fontSize: 15, fontWeight: '600', marginBottom: 3 },
-  modeTitleActive: { color: Colors.textPrimary },
-  modeDesc: { color: Colors.textTertiary, fontSize: 11, textAlign: 'center' },
-  sectionLabel: {
-    color: Colors.textTertiary,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
-  locRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xl },
-  locChip: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 10,
-    borderRadius: Radii.lg,
-    backgroundColor: Colors.glassLight,
-    borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
-  locChipActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
-  locIcon: { fontSize: 13 },
-  locText: { color: Colors.textTertiary, fontSize: 12, fontWeight: '500' },
-  locTextActive: { color: Colors.textPrimary, fontWeight: '600' },
-  generateBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.accent,
-    borderRadius: Radii.xl,
-    paddingVertical: 18,
-    marginBottom: Spacing.xl,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+  title: {
+    color: Colors.textPrimary,
+    ...Typography.title1,
+    fontSize: 22,
   },
-  btnSpecular: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  generateBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-  errorBox: {
-    backgroundColor: 'rgba(255,69,58,0.10)',
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(255,69,58,0.30)',
-  },
-  errorText: { color: '#FF6B6B', fontSize: 13, lineHeight: 19 },
-  outfitResult: { marginTop: 4 },
-  resultTitle: { color: Colors.textPrimary, ...Typography.title2, marginBottom: Spacing.lg },
-  slotLabel: {
+  subtitle: {
     color: Colors.textTertiary,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginBottom: 6,
-    marginTop: 10,
+    fontSize: 12,
   },
-  reshuffleBtn: {
-    backgroundColor: Colors.glassLight,
-    borderRadius: Radii.xl,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: Spacing.xl,
+  locTabs: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: Radii.pill,
+    padding: 3,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  reshuffleBtnText: { color: Colors.textSecondary, fontSize: 15, fontWeight: '600' },
+  locTab: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+  },
+  locTabActive: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  locTabText: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  locTabTextActive: {
+    color: Colors.textPrimary,
+  },
+  filterStrip: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.glassLight,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.glassBright,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  filterText: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  filterTextActive: {
+    color: Colors.textPrimary,
+  },
+  rowsScroll: {
+    flex: 1,
+  },
+  rowsContent: {
+    paddingBottom: 130,
+    paddingTop: 4,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  shuffleBtn: {
+    flex: 1,
+    backgroundColor: Colors.glassBright,
+    borderRadius: Radii.pill,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderGlassBright,
+  },
+  shuffleText: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  wearBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: Radii.pill,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  wearText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
 });
