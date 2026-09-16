@@ -2,11 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // ─── Configuration ───────────────────────────────────────────────────
-// Copy .env.example → .env and fill in your keys to switch to Supabase.
-// Until then the app uses AsyncStorage-only mode with mock data.
+let rawUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim();
+const SUPABASE_ANON_KEY = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '').trim();
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// Auto-normalize dashboard URL (e.g. https://supabase.com/dashboard/project/<ref>) to API URL
+const dashboardMatch = rawUrl.match(/project\/([a-zA-Z0-9]+)/);
+if (dashboardMatch) {
+  rawUrl = `https://${dashboardMatch[1]}.supabase.co`;
+}
+
+const SUPABASE_URL = rawUrl;
 
 /**
  * `true` when valid Supabase credentials are provided via environment.
