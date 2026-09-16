@@ -15,9 +15,45 @@ import {
   Category,
 } from '../types/wardrobe';
 import { MOCK_CLOTHING } from '../utils/mockData';
+import { supabase, isSupabaseConfigured } from '../config/supabase';
 
 // ─── Storage key ─────────────────────────────────────────────────────
 const STORAGE_KEY = '@dormdrobe/clothing';
+
+// ─── Supabase Snake <-> Camel mapping helpers ────────────────────────
+function toDbItem(it: ClothingItem) {
+  return {
+    id: it.id,
+    name: it.name,
+    category: it.category,
+    color: it.color,
+    brand: it.brand,
+    location: it.location,
+    status: it.status,
+    image_url: it.imageUrl,
+    is_uniform_white_tee: it.isUniformWhiteTee,
+    last_worn_at: it.lastWornAt,
+    notes: it.notes,
+    created_at: it.createdAt,
+  };
+}
+
+function fromDbItem(db: any): ClothingItem {
+  return {
+    id: db.id,
+    name: db.name,
+    category: db.category,
+    color: db.color,
+    brand: db.brand ?? null,
+    location: db.location,
+    status: db.status,
+    imageUrl: db.image_url ?? null,
+    isUniformWhiteTee: !!db.is_uniform_white_tee,
+    lastWornAt: db.last_worn_at ?? null,
+    notes: db.notes ?? '',
+    createdAt: db.created_at ?? new Date().toISOString(),
+  };
+}
 
 // ─── Context shape ───────────────────────────────────────────────────
 interface WardrobeState {
@@ -75,25 +111,49 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ── Load from storage (or seed with mock data) ─────────────────────
+  // ── Load from Supabase (or fallback to AsyncStorage / mock) ───────
   useEffect(() => {
     (async () => {
       try {
+        if (isSupabaseConfigured) {
+          const { data, error } = await supabase
+            .from('clothing_items')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (!error && data && data.length > 0) {
+            const parsed = data.map(fromDbItem);
+            setItems(parsed);
+            await persist(parsed);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Local storage / first launch
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         if (stored) {
           setItems(JSON.parse(stored));
         } else {
-          // First launch → seed with mock data
           setItems(MOCK_CLOTHING);
-          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_CLOTHING));
+          await persist(MOCK_CLOTHING);
+
+          // Seed Supabase if newly connected and empty
+          if (isSupabaseConfigured) {
+            supabase
+              .from('clothing_items')
+              .insert(MOCK_CLOTHING.map(toDbItem))
+              .then(() => console.log('[DormDrobe] Seeded Supabase with initial wardrobe'));
+          }
         }
-      } catch {
+      } catch (err) {
+        console.warn('[DormDrobe] Load error, using mock data:', err);
         setItems(MOCK_CLOTHING);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [persist]);
 
   // ── CRUD ──────────────────────────────────────────────────────────
   const addItem = useCallback(
@@ -103,6 +163,15 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         persist(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .insert(toDbItem(item))
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase insert error:', error.message);
+          });
+      }
     },
     [persist],
   );
@@ -116,6 +185,28 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         persist(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        const dbPatch: any = {};
+        if (patch.name !== undefined) dbPatch.name = patch.name;
+        if (patch.category !== undefined) dbPatch.category = patch.category;
+        if (patch.color !== undefined) dbPatch.color = patch.color;
+        if (patch.brand !== undefined) dbPatch.brand = patch.brand;
+        if (patch.location !== undefined) dbPatch.location = patch.location;
+        if (patch.status !== undefined) dbPatch.status = patch.status;
+        if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
+        if (patch.isUniformWhiteTee !== undefined) dbPatch.is_uniform_white_tee = patch.isUniformWhiteTee;
+        if (patch.lastWornAt !== undefined) dbPatch.last_worn_at = patch.lastWornAt;
+        if (patch.notes !== undefined) dbPatch.notes = patch.notes;
+
+        supabase
+          .from('clothing_items')
+          .update(dbPatch)
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase update error:', error.message);
+          });
+      }
     },
     [persist],
   );
@@ -127,6 +218,16 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         persist(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .delete()
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase delete error:', error.message);
+          });
+      }
     },
     [persist],
   );
@@ -142,6 +243,16 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         persist(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .update({ location: to })
+          .in('id', ids)
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase batch move error:', error.message);
+          });
+      }
     },
     [persist],
   );
@@ -160,6 +271,15 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         persist(next);
         return next;
       });
+
+      if (isSupabaseConfigured) {
+        let query = supabase.from('clothing_items').update({ status: newStatus });
+        if (filter.location) query = query.eq('location', filter.location);
+        if (filter.status) query = query.eq('status', filter.status);
+        query.then(({ error }) => {
+          if (error) console.warn('[DormDrobe] Supabase batch status error:', error.message);
+        });
+      }
     },
     [persist],
   );
