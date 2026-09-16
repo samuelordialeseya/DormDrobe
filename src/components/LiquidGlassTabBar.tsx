@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,24 +29,17 @@ const PILL_H = 44;
 const BAR_H = 64;
 const H_PAD = 20;       // outerContainer paddingHorizontal
 const BAR_PAD = 8;     // glassBar paddingHorizontal
-const SCREEN_W = Dimensions.get('window').width;
-const BAR_W = SCREEN_W - H_PAD * 2;
-const TAB_W = (BAR_W - BAR_PAD * 2) / TABS.length;
-const PILL_W = TAB_W * 0.82;
 const PILL_TOP = (BAR_H - PILL_H) / 2;
-
-function pillX(index: number): number {
-  return BAR_PAD + index * TAB_W + (TAB_W - PILL_W) / 2;
-}
 
 interface TabButtonProps {
   route: any;
   index: number;
   isFocused: boolean;
+  tabWidth: number;
   onPress: () => void;
 }
 
-function TabButton({ route, isFocused, onPress }: TabButtonProps) {
+function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
   const tab = TABS.find((t) => t.name === route.name) ?? TABS[0];
 
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0.88)).current;
@@ -72,7 +65,7 @@ function TabButton({ route, isFocused, onPress }: TabButtonProps) {
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
-      style={styles.tabItem}
+      style={[styles.tabItem, { width: tabWidth }]}
     >
       <Animated.View
         style={[
@@ -99,18 +92,29 @@ export default function LiquidGlassTabBar({
   navigation,
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Constrain navbar to iPhone 13 width (390px) on desktop, or natural width on phone
+  const screenWidth = Math.min(windowWidth, 390);
+  const barWidth = screenWidth - H_PAD * 2;
+  const tabWidth = (barWidth - BAR_PAD * 2) / TABS.length;
+  const pillWidth = tabWidth * 0.82;
+
+  const getPillX = (idx: number): number => {
+    return BAR_PAD + idx * tabWidth + (tabWidth - pillWidth) / 2;
+  };
 
   // ── Sliding liquid pill ───────────────────────────────────────────
-  const pillAnim = useRef(new Animated.Value(pillX(state.index))).current;
+  const pillAnim = useRef(new Animated.Value(getPillX(state.index))).current;
 
   useEffect(() => {
     Animated.spring(pillAnim, {
-      toValue: pillX(state.index),
+      toValue: getPillX(state.index),
       useNativeDriver: true,
       tension: 300,
       friction: 26,
     }).start();
-  }, [state.index]);
+  }, [state.index, tabWidth, pillWidth]);
 
   return (
     <View
@@ -119,12 +123,12 @@ export default function LiquidGlassTabBar({
         { paddingBottom: insets.bottom + 8 },
       ]}
     >
-      <View style={styles.glassBar}>
+      <View style={[styles.glassBar, { width: barWidth }]}>
         {/* Sliding active pill — animates between tabs like liquid glass */}
         <Animated.View
           style={[
             styles.activePill,
-            { transform: [{ translateX: pillAnim }] },
+            { width: pillWidth, transform: [{ translateX: pillAnim }] },
           ]}
         />
 
@@ -149,6 +153,7 @@ export default function LiquidGlassTabBar({
               route={route}
               index={index}
               isFocused={isFocused}
+              tabWidth={tabWidth}
               onPress={onPress}
             />
           );
@@ -170,7 +175,6 @@ const styles = StyleSheet.create({
   glassBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: BAR_W,
     height: BAR_H,
     borderRadius: Radii.pill,
     backgroundColor: 'rgba(28,28,30,0.88)',
@@ -187,7 +191,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: PILL_TOP,
     left: 0,
-    width: PILL_W,
     height: PILL_H,
     borderRadius: PILL_H / 2,
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -200,7 +203,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   tabItem: {
-    width: TAB_W,
     height: BAR_H,
     alignItems: 'center',
     justifyContent: 'center',
