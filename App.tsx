@@ -13,6 +13,7 @@ const AppTheme = {
     ...DarkTheme.colors,
     background: '#0A0A0A',
     card: '#0A0A0A',
+    border: 'transparent',
   },
 };
 

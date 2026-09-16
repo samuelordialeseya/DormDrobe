@@ -120,18 +120,13 @@ export default function LiquidGlassTabBar({
       ]}
     >
       <View style={styles.glassBar}>
-        {/* Specular top highlight */}
-        <View style={styles.topHighlight} />
-
         {/* Sliding active pill — animates between tabs like liquid glass */}
         <Animated.View
           style={[
             styles.activePill,
             { transform: [{ translateX: pillAnim }] },
           ]}
-        >
-          <View style={styles.pillSpecular} />
-        </Animated.View>
+        />
 
         {/* Tab items */}
         {state.routes.map((route, index) => {
@@ -180,24 +175,13 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: 'rgba(28,28,30,0.88)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: BAR_PAD,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.55,
     shadowRadius: 28,
     elevation: 20,
-  },
-  topHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.24)',
-    borderTopLeftRadius: Radii.pill,
-    borderTopRightRadius: Radii.pill,
-    zIndex: 2,
   },
   activePill: {
     position: 'absolute',
@@ -208,21 +192,12 @@ const styles = StyleSheet.create({
     borderRadius: PILL_H / 2,
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: 'rgba(255,255,255,0.18)',
     overflow: 'hidden',
     shadowColor: '#fff',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 6,
-  },
-  pillSpecular: {
-    position: 'absolute',
-    top: 0,
-    left: 8,
-    right: 8,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.40)',
-    borderRadius: 0.5,
   },
   tabItem: {
     width: TAB_W,
