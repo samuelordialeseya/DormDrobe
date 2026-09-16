@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { ClothingItem, CATEGORY_ICONS, LOCATION_LABELS, STATUS_COLORS } from '../types/wardrobe';
+import { ClothingItem, CATEGORY_ICONS, LOCATION_LABELS } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
 import { Colors, Radii, Spacing } from '../theme/theme';
@@ -47,7 +47,6 @@ export default function ClothingCard({
   delay = 0,
 }: Props) {
   const emoji = CATEGORY_ICONS[item.category];
-  const accentColor = STATUS_COLORS[item.status];
 
   // Entrance animation
   const opacity = useRef(new Animated.Value(0)).current;
@@ -96,9 +95,6 @@ export default function ClothingCard({
       >
         {/* Specular top edge */}
         <View style={styles.specular} />
-
-        {/* Status accent bar */}
-        <View style={[styles.accentBar, { backgroundColor: accentColor + '70' }]} />
 
         {/* Thumbnail */}
         <View style={[styles.thumb, selected && styles.thumbSelected]}>
@@ -183,14 +179,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.16)',
     zIndex: 5,
   },
-  accentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 10,
-    bottom: 10,
-    width: 3,
-    borderRadius: 2,
-  },
   thumb: {
     width: 68,
     height: 68,
@@ -201,7 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
-    marginLeft: 6,
+    marginLeft: 0,
     position: 'relative',
     overflow: 'visible',
   },
