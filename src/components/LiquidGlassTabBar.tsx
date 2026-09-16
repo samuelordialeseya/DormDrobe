@@ -18,10 +18,10 @@ type TabDef = {
 };
 
 const TABS: TabDef[] = [
+  { name: 'Home', icon: '🏠', label: 'Home' },
   { name: 'Closet', icon: '👕', label: 'Closet' },
   { name: 'Batch', icon: '🧺', label: 'Actions' },
   { name: 'FitGen', icon: '✨', label: 'Fit Gen' },
-  { name: 'Add', icon: '＋', label: 'Add' },
   { name: 'Settings', icon: '⚙', label: 'Settings' },
 ];
 
@@ -94,27 +94,41 @@ export default function LiquidGlassTabBar({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
 
+  // Filter only declared tabs for the liquid glass bar
+  const visibleRoutes = state.routes.filter((route) =>
+    TABS.some((t) => t.name === route.name)
+  );
+
+  const activeVisibleIndex = visibleRoutes.findIndex(
+    (r) => r.name === state.routes[state.index]?.name
+  );
+
   // Constrain navbar to iPhone 13 width (390px) on desktop, or natural width on phone
   const screenWidth = Math.min(windowWidth, 390);
   const barWidth = screenWidth - H_PAD * 2;
-  const tabWidth = (barWidth - BAR_PAD * 2) / TABS.length;
+  const tabWidth = (barWidth - BAR_PAD * 2) / visibleRoutes.length;
   const pillWidth = tabWidth * 0.82;
 
   const getPillX = (idx: number): number => {
-    return BAR_PAD + idx * tabWidth + (tabWidth - pillWidth) / 2;
+    const safeIdx = Math.max(0, idx);
+    return BAR_PAD + safeIdx * tabWidth + (tabWidth - pillWidth) / 2;
   };
 
   // ── Sliding liquid pill ───────────────────────────────────────────
-  const pillAnim = useRef(new Animated.Value(getPillX(state.index))).current;
+  const pillAnim = useRef(
+    new Animated.Value(getPillX(activeVisibleIndex >= 0 ? activeVisibleIndex : 0))
+  ).current;
 
   useEffect(() => {
-    Animated.spring(pillAnim, {
-      toValue: getPillX(state.index),
-      useNativeDriver: true,
-      tension: 300,
-      friction: 26,
-    }).start();
-  }, [state.index, tabWidth, pillWidth]);
+    if (activeVisibleIndex >= 0) {
+      Animated.spring(pillAnim, {
+        toValue: getPillX(activeVisibleIndex),
+        useNativeDriver: true,
+        tension: 300,
+        friction: 26,
+      }).start();
+    }
+  }, [activeVisibleIndex, tabWidth, pillWidth]);
 
   return (
     <View
@@ -125,16 +139,18 @@ export default function LiquidGlassTabBar({
     >
       <View style={[styles.glassBar, { width: barWidth }]}>
         {/* Sliding active pill — animates between tabs like liquid glass */}
-        <Animated.View
-          style={[
-            styles.activePill,
-            { width: pillWidth, transform: [{ translateX: pillAnim }] },
-          ]}
-        />
+        {activeVisibleIndex >= 0 && (
+          <Animated.View
+            style={[
+              styles.activePill,
+              { width: pillWidth, transform: [{ translateX: pillAnim }] },
+            ]}
+          />
+        )}
 
         {/* Tab items */}
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
+        {visibleRoutes.map((route, index) => {
+          const isFocused = activeVisibleIndex === index;
 
           const onPress = () => {
             const event = navigation.emit({

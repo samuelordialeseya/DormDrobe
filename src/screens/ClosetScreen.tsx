@@ -10,16 +10,19 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useWardrobe } from '../context/WardrobeContext';
 import LocationFilter from '../components/LocationFilter';
 import ClothingCard from '../components/ClothingCard';
 import FadeSlideIn from '../components/FadeSlideIn';
+import PressableScale from '../components/PressableScale';
 import { Status, STATUS_LABELS, STATUS_COLORS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 
 const STATUS_OPTIONS: (Status | null)[] = [null, 'clean', 'worn', 'in_laundry', 'drying', 'misplaced'];
 
 export default function ClosetScreen() {
+  const navigation = useNavigation<any>();
   const {
     filteredItems,
     locationFilter,
@@ -53,8 +56,18 @@ export default function ClosetScreen() {
               <Text style={styles.title}>My Closet</Text>
               <Text style={styles.subtitle}>{filteredItems.length} items</Text>
             </View>
-            <View style={styles.headerStatBadge}>
-              <Text style={styles.headerStatNum}>{filteredItems.length}</Text>
+            <View style={styles.headerRight}>
+              <PressableScale
+                onPress={() => navigation.navigate('Add')}
+                scaleTo={0.92}
+              >
+                <View style={styles.addBtn}>
+                  <Text style={styles.addBtnText}>＋ Add</Text>
+                </View>
+              </PressableScale>
+              <View style={styles.headerStatBadge}>
+                <Text style={styles.headerStatNum}>{filteredItems.length}</Text>
+              </View>
             </View>
           </View>
         </FadeSlideIn>
@@ -181,10 +194,29 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: -0.1,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  addBtn: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: Radii.pill,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  addBtnText: {
+    color: Colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   headerStatBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.glassMid,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
@@ -193,7 +225,7 @@ const styles = StyleSheet.create({
   },
   headerStatNum: {
     color: Colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   statsStrip: {
