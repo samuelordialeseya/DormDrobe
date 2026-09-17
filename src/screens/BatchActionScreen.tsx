@@ -126,13 +126,13 @@ export default function BatchActionScreen() {
                   {m === 'laundry' ? (
                     <Waves
                       size={16}
-                      color={active ? Colors.textPrimary : Colors.textTertiary}
+                      color={active ? '#FFFFFF' : Colors.textTertiary}
                       strokeWidth={2}
                     />
                   ) : (
                     <Luggage
                       size={16}
-                      color={active ? Colors.textPrimary : Colors.textTertiary}
+                      color={active ? '#FFFFFF' : Colors.textTertiary}
                       strokeWidth={2}
                     />
                   )}
@@ -161,7 +161,7 @@ export default function BatchActionScreen() {
                   <LocationIcon
                     location={loc}
                     size={14}
-                    color={active ? Colors.textPrimary : Colors.textTertiary}
+                    color={active ? '#FFFFFF' : Colors.textTertiary}
                     strokeWidth={2}
                   />
                   <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
@@ -223,7 +223,7 @@ export default function BatchActionScreen() {
                       <LocationIcon
                         location={loc}
                         size={14}
-                        color={active ? Colors.textPrimary : Colors.textTertiary}
+                        color={active ? '#FFFFFF' : Colors.textTertiary}
                         strokeWidth={2}
                       />
                       <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
@@ -286,14 +286,22 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingVertical: 13,
     borderRadius: Radii.xl,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  modeBtnActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
+  modeBtnActive: {
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
+  },
   modeBtnIcon: { fontSize: 16 },
   modeBtnText: { color: Colors.textTertiary, fontSize: 14, fontWeight: '600' },
-  modeBtnTextActive: { color: Colors.textPrimary },
+  modeBtnTextActive: { color: '#FFFFFF' },
   sectionLabel: {
     color: Colors.textTertiary,
     fontSize: 10,
@@ -307,41 +315,49 @@ const styles = StyleSheet.create({
   locChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 8,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  locChipActive: { backgroundColor: Colors.glassBright, borderColor: Colors.borderGlassBright },
+  locChipActive: {
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
+  },
   locIcon: { fontSize: 13 },
   locText: { color: Colors.textTertiary, fontSize: 13, fontWeight: '500' },
-  locTextActive: { color: Colors.textPrimary, fontWeight: '600' },
+  locTextActive: { color: '#FFFFFF', fontWeight: '600' },
   actionArea: { paddingHorizontal: Spacing.lg, gap: Spacing.md },
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.glassMid,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     gap: 14,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 2,
   },
   specular: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   actionIconBg: { width: 52, height: 52, borderRadius: Radii.lg, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   actionEmoji: { fontSize: 24 },
@@ -359,22 +375,22 @@ const styles = StyleSheet.create({
     right: Spacing.xl,
   },
   packBtn: {
-    backgroundColor: Colors.accent,
+    backgroundColor: '#1C1C1E',
     borderRadius: Radii.xl,
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: 'center',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 4,
   },
   btnSpecular: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
-  packBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+  packBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
 });

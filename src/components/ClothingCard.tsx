@@ -107,8 +107,7 @@ export default function ClothingCard({
             <CategoryIcon
               category={item.category}
               size={28}
-              color="rgba(255,255,255,0.75)"
-              strokeWidth={1.8}
+              color={Colors.textSecondary}
             />
           )}
           <View
@@ -167,23 +166,24 @@ export default function ClothingCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: Colors.glassMid,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.md,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.20,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 2,
   },
   selectedCard: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(0, 0, 0, 0.20)',
+    borderWidth: 1.5,
   },
   specular: {
     position: 'absolute',
@@ -191,16 +191,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
     zIndex: 5,
   },
   thumb: {
     width: 68,
     height: 68,
     borderRadius: Radii.lg,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#F2F2F7',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   thumbSelected: {
-    borderColor: Colors.borderGlassBright,
+    borderColor: 'rgba(0, 0, 0, 0.20)',
   },
   thumbImg: {
     width: 56,
@@ -222,8 +222,8 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   checkbox: {
     position: 'absolute',
@@ -233,8 +233,8 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: Colors.textTertiary,
-    backgroundColor: Colors.bgBase,
+    borderColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

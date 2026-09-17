@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Shirt, Luggage, Sparkles, Settings } from 'lucide-react-native';
-import { Radii } from '../theme/theme';
+import { Home, Shirt, Luggage, Sparkles, Settings } from './AppIcons';
+import { Colors, Radii } from '../theme/theme';
 
 type TabDef = {
   name: string;
-  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; weight?: any }>;
   label: string;
 };
 
@@ -63,7 +63,7 @@ function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
     ]).start();
   }, [isFocused]);
 
-  const iconColor = isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.40)';
+  const iconColor = isFocused ? Colors.textPrimary : Colors.textTertiary;
 
   return (
     <TouchableOpacity
@@ -77,7 +77,7 @@ function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
           { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
         ]}
       >
-        <IconComponent size={20} color={iconColor} strokeWidth={isFocused ? 2.2 : 1.8} />
+        <IconComponent size={20} color={iconColor} weight={isFocused ? 'regular' : 'light'} />
         <Text
           style={[
             styles.tabLabel,
@@ -197,15 +197,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: BAR_H,
     borderRadius: Radii.pill,
-    backgroundColor: 'rgba(28,28,30,0.88)',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
     paddingHorizontal: BAR_PAD,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.55,
-    shadowRadius: 28,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 24,
+    elevation: 12,
   },
   activePill: {
     position: 'absolute',
@@ -213,14 +213,10 @@ const styles = StyleSheet.create({
     left: 0,
     height: PILL_H,
     borderRadius: PILL_H / 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(0, 0, 0, 0.04)',
     overflow: 'hidden',
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
   },
   tabItem: {
     height: BAR_H,
@@ -237,9 +233,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: 'rgba(255,255,255,0.95)',
+    color: Colors.textPrimary,
   },
   tabLabelInactive: {
-    color: 'rgba(255,255,255,0.40)',
+    color: Colors.textTertiary,
   },
 });

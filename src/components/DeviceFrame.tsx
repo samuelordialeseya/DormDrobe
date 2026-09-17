@@ -141,11 +141,11 @@ export default function DeviceFrame({ children }: Props) {
 const styles = StyleSheet.create({
   nativeContainer: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#F2F2F7',
   },
   desktopCanvas: {
     flex: 1,
-    backgroundColor: '#070709',
+    backgroundColor: '#E5E5EA',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
@@ -156,11 +156,15 @@ const styles = StyleSheet.create({
   },
   viewSwitcher: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(28,28,30,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 24,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   switchBtn: {
     flexDirection: 'row',
@@ -171,19 +175,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   switchBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   switchText: {
-    color: 'rgba(255,255,255,0.45)',
+    color: '#8E8E93',
     fontSize: 12,
     fontWeight: '600',
   },
   switchTextActive: {
-    color: '#FFFFFF',
+    color: '#1C1C1E',
   },
   frameWrapper: {
     position: 'relative',
-    backgroundColor: '#0A0A0A',
+    backgroundColor: '#F2F2F7',
   },
   fullscreenFrame: {
     width: '100%',
@@ -191,7 +199,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: 'rgba(0,0,0,0.08)',
     overflow: 'hidden',
   },
   topChrome: {
@@ -241,7 +249,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   statusTime: {
-    color: '#FFFFFF',
+    color: '#1C1C1E',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -259,11 +267,11 @@ const styles = StyleSheet.create({
   },
   signalBar: {
     width: 2.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 0.8,
   },
   networkText: {
-    color: '#FFFFFF',
+    color: '#1C1C1E',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -274,7 +282,7 @@ const styles = StyleSheet.create({
     height: 11,
     borderRadius: 3.5,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
+    borderColor: 'rgba(0,0,0,0.6)',
     padding: 1.5,
     position: 'relative',
     justifyContent: 'center',
@@ -282,7 +290,7 @@ const styles = StyleSheet.create({
   batteryFill: {
     height: '100%',
     width: '75%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 1.5,
   },
   batteryCap: {
@@ -291,7 +299,7 @@ const styles = StyleSheet.create({
     width: 2,
     height: 4,
     borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   appContent: {
     flex: 1,
@@ -311,6 +319,6 @@ const styles = StyleSheet.create({
     width: 134,
     height: 4.5,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.22)',
   },
 });

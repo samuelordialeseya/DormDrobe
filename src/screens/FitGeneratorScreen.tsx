@@ -216,7 +216,7 @@ export default function FitGeneratorScreen() {
             >
               <Sparkles
                 size={12}
-                color={cleanOnly ? Colors.textPrimary : Colors.textTertiary}
+                color={cleanOnly ? '#FFFFFF' : Colors.textTertiary}
                 strokeWidth={2}
               />
               <Text style={[styles.filterText, cleanOnly && styles.filterTextActive]}>
@@ -231,7 +231,7 @@ export default function FitGeneratorScreen() {
             >
               <Shirt
                 size={12}
-                color={uniformOnly ? Colors.textPrimary : Colors.textTertiary}
+                color={uniformOnly ? '#FFFFFF' : Colors.textTertiary}
                 strokeWidth={2}
               />
               <Text style={[styles.filterText, uniformOnly && styles.filterTextActive]}>
@@ -358,11 +358,11 @@ const styles = StyleSheet.create({
   },
   locTabs: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     borderRadius: Radii.pill,
     padding: 3,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   locTab: {
     flexDirection: 'row',
@@ -373,7 +373,12 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
   },
   locTabActive: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
   locTabText: {
     color: Colors.textTertiary,
@@ -389,23 +394,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(0,0,0,0.06)',
     marginBottom: 6,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
   },
   filterChipActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
   },
   filterText: {
     color: Colors.textTertiary,
@@ -413,7 +423,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterTextActive: {
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
   },
   rowsScroll: {
     flex: 1,
@@ -433,13 +443,18 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: Colors.glassBright,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.pill,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.borderGlassBright,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   shuffleText: {
     color: Colors.textPrimary,
@@ -451,13 +466,16 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#1C1C1E',
     borderRadius: Radii.pill,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   wearText: {
     color: '#FFFFFF',

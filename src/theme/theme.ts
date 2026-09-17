@@ -1,39 +1,39 @@
 // ─── DormDrobe Design System ─────────────────────────────────────────
-// Apple-inspired Liquid Glass — neutral, restrained, color-on-purpose.
+// Apple Frost Liquid Glass — Light Mode (Clean, restrained, tactile).
 
 export const Colors = {
-  // True deep black backgrounds (Apple-style)
-  bgDeep: '#000000',
-  bgBase: '#0A0A0A',
-  bgLayer: '#111111',
+  // Apple iOS grouped system background
+  bgDeep: '#E5E5EA',
+  bgBase: '#F2F2F7',      // Primary app canvas
+  bgLayer: '#FFFFFF',     // Solid elevated layer
 
-  // Glass surfaces — neutral white transparency only
-  glassLight: 'rgba(255,255,255,0.055)',
-  glassMid: 'rgba(255,255,255,0.085)',
-  glassBright: 'rgba(255,255,255,0.12)',
-  glassWhite: 'rgba(255,255,255,0.16)',
+  // Apple frosted liquid glass surfaces
+  glassLight: 'rgba(255, 255, 255, 0.72)',
+  glassMid: 'rgba(255, 255, 255, 0.88)',
+  glassBright: '#FFFFFF',
+  glassWhite: '#FFFFFF',
 
-  // Glass borders — crisp, neutral
-  borderGlass: 'rgba(255,255,255,0.10)',
-  borderGlassBright: 'rgba(255,255,255,0.18)',
+  // Crisp micro-borders
+  borderGlass: 'rgba(0, 0, 0, 0.06)',
+  borderGlassBright: 'rgba(0, 0, 0, 0.12)',
 
-  // Brand accent — used ONLY on primary buttons & active indicators
-  accent: '#7C3AED',        // single source of truth
-  accentLight: '#A78BFA',   // active text / labels
+  // Brand accent — chic editorial black with indigo touches
+  accent: '#1C1C1E',
+  accentLight: '#007AFF',
 
-  // Status colors (functional, not decorative)
-  statusClean: '#30D158',    // Apple system green
-  statusWorn: '#FF9F0A',     // Apple system orange
+  // Status colors (functional Apple Light Mode tints)
+  statusClean: '#34C759',     // Apple system green
+  statusWorn: '#FF9500',      // Apple system orange / amber
   statusLaundry: '#FF6B35',
-  statusDrying: '#0A84FF',   // Apple system blue
-  statusMisplaced: '#FF453A', // Apple system red
+  statusDrying: '#007AFF',    // Apple system blue
+  statusMisplaced: '#FF3B30', // Apple system red
 
-  // Text
+  // Typography (Apple Light Mode hierarchy)
   white: '#FFFFFF',
-  textPrimary: 'rgba(255,255,255,0.90)',
-  textSecondary: 'rgba(255,255,255,0.50)',
-  textTertiary: 'rgba(255,255,255,0.28)',
-  textInactive: 'rgba(255,255,255,0.18)',
+  textPrimary: '#1C1C1E',     // Deep near-black
+  textSecondary: '#636366',   // Neutral mid-gray
+  textTertiary: '#8E8E93',    // Light neutral gray
+  textInactive: '#C7C7CC',    // Subtle placeholder gray
 };
 
 export const Radii = {

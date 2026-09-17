@@ -22,7 +22,7 @@ export default function LocationFilter({ selected, onSelect }: Props) {
       {LOCATIONS.map((loc) => {
         const active = loc === selected;
         const label = loc ? (loc === 'batangas_dorm' ? 'Dorm' : loc === 'calamba_home' ? 'Home' : 'In Bag') : 'All';
-        const iconColor = active ? Colors.textPrimary : Colors.textTertiary;
+        const iconColor = active ? '#FFFFFF' : Colors.textTertiary;
 
         return (
           <PressableScale
@@ -60,14 +60,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 8,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 2,
+    elevation: 1,
     gap: 6,
   },
   chipActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
   },
   chipText: {
     color: Colors.textTertiary,
@@ -76,7 +81,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   chipTextActive: {
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 });

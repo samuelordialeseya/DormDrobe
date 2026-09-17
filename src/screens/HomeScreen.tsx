@@ -268,7 +268,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.actionCard}>
                   <View style={styles.actionIconBox}>
-                    <Sparkles size={20} color="#FFFFFF" strokeWidth={2} />
+                    <Sparkles size={20} color={Colors.textPrimary} />
                   </View>
                   <Text style={styles.actionTitle}>Generate Fit</Text>
                   <Text style={styles.actionSub}>Roll today's outfit</Text>
@@ -283,7 +283,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.actionCard}>
                   <View style={styles.actionIconBox}>
-                    <Luggage size={20} color="#FFFFFF" strokeWidth={2} />
+                    <Luggage size={20} color={Colors.textPrimary} />
                   </View>
                   <Text style={styles.actionTitle}>Pack & Move</Text>
                   <Text style={styles.actionSub}>Transfer luggage</Text>
@@ -298,7 +298,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.actionCard}>
                   <View style={styles.actionIconBox}>
-                    <Plus size={20} color="#FFFFFF" strokeWidth={2} />
+                    <Plus size={20} color={Colors.textPrimary} />
                   </View>
                   <Text style={styles.actionTitle}>Add Clothes</Text>
                   <Text style={styles.actionSub}>Log a new piece</Text>
@@ -354,7 +354,7 @@ export default function HomeScreen() {
                     Search, filter, or manage all {totalItems} items
                   </Text>
                 </View>
-                <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <ArrowRight size={18} color={Colors.textPrimary} />
               </View>
             </PressableScale>
           </FadeSlideIn>
@@ -397,11 +397,11 @@ const styles = StyleSheet.create({
   },
   locToggle: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: Radii.pill,
     padding: 3,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
   },
   locToggleBtn: {
     paddingHorizontal: 10,
@@ -409,7 +409,11 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
   },
   locToggleBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   locToggleText: {
     color: Colors.textTertiary,
@@ -422,10 +426,10 @@ const styles = StyleSheet.create({
   laundryAlert: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,159,10,0.10)',
+    backgroundColor: 'rgba(255, 149, 0, 0.10)',
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,159,10,0.30)',
+    borderColor: 'rgba(255, 149, 0, 0.25)',
     padding: Spacing.md,
     marginBottom: Spacing.md,
     gap: Spacing.sm,
@@ -437,13 +441,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   laundryAlertTitle: {
-    color: '#FFB340',
+    color: '#D97706',
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 1,
   },
   laundryAlertSub: {
-    color: 'rgba(255,179,64,0.75)',
+    color: 'rgba(217, 119, 6, 0.85)',
     fontSize: 11,
   },
   sectionHeader: {
@@ -473,15 +477,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationCard: {
-    backgroundColor: Colors.glassMid,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   locationCardCurrent: {
-    borderColor: 'rgba(255,255,255,0.28)',
-    backgroundColor: Colors.glassBright,
+    borderColor: 'rgba(0, 0, 0, 0.18)',
+    borderWidth: 1.5,
   },
   locCardTop: {
     flexDirection: 'row',
@@ -493,9 +502,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   currentBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
     borderRadius: 6,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 2,
   },
   currentBadgeText: {
@@ -527,12 +536,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
     marginBottom: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   bagCardLeft: {
     flexDirection: 'row',
@@ -579,18 +593,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionCard: {
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.lg,
     padding: Spacing.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   actionIconBox: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -608,12 +627,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   barometerCard: {
-    backgroundColor: Colors.glassMid,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
     marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   barometerHeader: {
     flexDirection: 'row',
@@ -654,18 +678,23 @@ const styles = StyleSheet.create({
   barometerDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
   },
   browseClosetBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   browseClosetTitle: {
     color: Colors.textPrimary,

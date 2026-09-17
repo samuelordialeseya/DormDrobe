@@ -344,7 +344,7 @@ export default function AddItemScreen() {
                         <CategoryIcon
                           category={cat}
                           size={13}
-                          color={active ? Colors.textPrimary : Colors.textTertiary}
+                          color={active ? '#FFFFFF' : Colors.textTertiary}
                           strokeWidth={2}
                         />
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -373,7 +373,7 @@ export default function AddItemScreen() {
                         <LocationIcon
                           location={loc}
                           size={13}
-                          color={active ? Colors.textPrimary : Colors.textTertiary}
+                          color={active ? '#FFFFFF' : Colors.textTertiary}
                           strokeWidth={2}
                         />
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
@@ -514,14 +514,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   photoCard: {
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
     position: 'relative',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   specular: {
     position: 'absolute',
@@ -529,20 +534,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   emptyPhotoPicker: {
     paddingVertical: Spacing.xl,
     alignItems: 'center',
     gap: 8,
+    backgroundColor: '#F9F9FB',
+    borderRadius: Radii.lg,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.08)',
+    borderStyle: 'dashed',
   },
   cameraIconRing: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.glassMid,
+    backgroundColor: '#F2F2F7',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -564,17 +574,16 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: Radii.lg,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F2F2F7',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   cutoutFrame: {
-    // Checkered transparent representation
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: '#E5E5EA',
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   previewImage: {
     width: 170,
@@ -590,13 +599,16 @@ const styles = StyleSheet.create({
   },
   removeBgBtn: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#1C1C1E',
     borderRadius: Radii.pill,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   removeBgText: {
     color: '#FFFFFF',
@@ -607,28 +619,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   changePhotoText: {
-    color: Colors.textTertiary,
+    color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
   cutoutControls: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: '#F2F2F7',
     borderRadius: Radii.lg,
     padding: 10,
     gap: 8,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   viewToggleRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(0,0,0,0.06)',
     borderRadius: Radii.pill,
     padding: 2,
   },
@@ -639,7 +651,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewToggleBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
   viewToggleText: {
     color: Colors.textTertiary,
@@ -647,7 +664,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   viewToggleTextActive: {
-    color: '#FFFFFF',
+    color: Colors.textPrimary,
   },
   toleranceRow: {
     flexDirection: 'row',
@@ -663,13 +680,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   tolBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
   },
   tolText: {
     color: Colors.textTertiary,
@@ -692,8 +709,13 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    backgroundColor: Colors.glassLight,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
   },
   input: {
     paddingHorizontal: Spacing.lg,
@@ -709,17 +731,22 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 2,
+    elevation: 1,
   },
   chipActive: {
-    backgroundColor: Colors.glassBright,
-    borderColor: Colors.borderGlassBright,
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
   },
   chipIcon: { fontSize: 12 },
   chipText: {
@@ -728,7 +755,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextActive: {
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   statusDot: {
@@ -741,15 +768,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: Spacing.lg,
-    backgroundColor: Colors.glassLight,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   toggleRowActive: {
-    borderColor: 'rgba(10,132,255,0.35)',
-    backgroundColor: 'rgba(10,132,255,0.08)',
+    borderColor: 'rgba(10,132,255,0.3)',
+    backgroundColor: 'rgba(10,132,255,0.05)',
   },
   toggleLeft: { flex: 1 },
   toggleTitle: {
@@ -767,7 +799,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
     padding: 2,
     justifyContent: 'center',
   },
@@ -779,6 +811,10 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
   },
   toggleThumbOn: {
     alignSelf: 'flex-end',
@@ -791,14 +827,19 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   saveBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: Radii.pill,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: Spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
   },
   saveBtnText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },
