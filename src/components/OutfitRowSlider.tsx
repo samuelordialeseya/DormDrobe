@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,11 @@ import {
   NativeScrollEvent,
   Image,
 } from 'react-native';
-import { ClothingItem, CATEGORY_ICONS } from '../types/wardrobe';
+import { ClothingItem } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
 import { Colors, Radii, Spacing } from '../theme/theme';
+import { CategoryIcon, Lock, Unlock } from './AppIcons';
 
 const CARD_WIDTH = 220;
 const CARD_GAP = 10;
@@ -19,7 +20,7 @@ const ITEM_TOTAL_WIDTH = CARD_WIDTH + CARD_GAP;
 
 interface Props {
   title: string;
-  icon: string;
+  icon?: React.ReactNode;
   items: ClothingItem[];
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
@@ -63,7 +64,7 @@ export default function OutfitRowSlider({
       {/* Row Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.icon}>{icon}</Text>
+          {icon && <View style={styles.iconBox}>{icon}</View>}
           <Text style={styles.title}>{title}</Text>
           {items.length > 0 && (
             <View style={styles.counterBadge}>
@@ -82,7 +83,11 @@ export default function OutfitRowSlider({
               isLocked ? styles.lockBtnActive : styles.lockBtnInactive,
             ]}
           >
-            <Text style={styles.lockIcon}>{isLocked ? '🔒' : '🔓'}</Text>
+            {isLocked ? (
+              <Lock size={11} color="#FFB340" strokeWidth={2.5} />
+            ) : (
+              <Unlock size={11} color={Colors.textTertiary} strokeWidth={2} />
+            )}
             <Text
               style={[
                 styles.lockText,
@@ -99,7 +104,7 @@ export default function OutfitRowSlider({
       {items.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>
-            No clean {title.toLowerCase()} found here
+            No clean items found here
           </Text>
         </View>
       ) : (
@@ -115,7 +120,6 @@ export default function OutfitRowSlider({
           onMomentumScrollEnd={onMomentumScrollEnd}
           renderItem={({ item, index }) => {
             const isSelected = index === selectedIndex;
-            const categoryEmoji = CATEGORY_ICONS[item.category] || '👕';
 
             return (
               <PressableScale
@@ -127,7 +131,7 @@ export default function OutfitRowSlider({
                   isLocked && isSelected && styles.cardLocked,
                 ]}
               >
-                {/* Garment Image / Emoji Preview */}
+                {/* Garment Image / Category Vector Icon Preview */}
                 <View style={styles.thumbBox}>
                   {item.imageUrl ? (
                     <Image
@@ -136,7 +140,12 @@ export default function OutfitRowSlider({
                       resizeMode="contain"
                     />
                   ) : (
-                    <Text style={styles.thumbEmoji}>{categoryEmoji}</Text>
+                    <CategoryIcon
+                      category={item.category}
+                      size={28}
+                      color="rgba(255,255,255,0.75)"
+                      strokeWidth={1.8}
+                    />
                   )}
                   <View
                     style={[
@@ -193,8 +202,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  icon: {
-    fontSize: 14,
+  iconBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     color: Colors.textSecondary,
@@ -230,9 +240,6 @@ const styles = StyleSheet.create({
   lockBtnActive: {
     backgroundColor: 'rgba(255,179,64,0.15)',
     borderColor: 'rgba(255,179,64,0.40)',
-  },
-  lockIcon: {
-    fontSize: 10,
   },
   lockText: {
     color: Colors.textTertiary,
@@ -281,9 +288,6 @@ const styles = StyleSheet.create({
   thumbImage: {
     width: 54,
     height: 66,
-  },
-  thumbEmoji: {
-    fontSize: 28,
   },
   colorDot: {
     position: 'absolute',

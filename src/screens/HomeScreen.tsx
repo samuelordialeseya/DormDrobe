@@ -13,6 +13,15 @@ import { Location } from '../types/wardrobe';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
+import {
+  LocationIcon,
+  Sparkles,
+  Luggage,
+  Plus,
+  Waves,
+  ChevronRight,
+  ArrowRight,
+} from '../components/AppIcons';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -87,13 +96,18 @@ export default function HomeScreen() {
                   ]}
                   activeOpacity={0.7}
                 >
+                  <LocationIcon
+                    location="batangas_dorm"
+                    size={12}
+                    color={currentLoc === 'batangas_dorm' ? Colors.textPrimary : Colors.textTertiary}
+                  />
                   <Text
                     style={[
                       styles.locToggleText,
                       currentLoc === 'batangas_dorm' && styles.locToggleTextActive,
                     ]}
                   >
-                    🏫 Dorm
+                    Dorm
                   </Text>
                 </TouchableOpacity>
 
@@ -105,13 +119,18 @@ export default function HomeScreen() {
                   ]}
                   activeOpacity={0.7}
                 >
+                  <LocationIcon
+                    location="calamba_home"
+                    size={12}
+                    color={currentLoc === 'calamba_home' ? Colors.textPrimary : Colors.textTertiary}
+                  />
                   <Text
                     style={[
                       styles.locToggleText,
                       currentLoc === 'calamba_home' && styles.locToggleTextActive,
                     ]}
                   >
-                    🏠 Home
+                    Home
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -126,7 +145,7 @@ export default function HomeScreen() {
                 scaleTo={0.98}
               >
                 <View style={styles.laundryAlert}>
-                  <Text style={styles.laundryAlertIcon}>🧺</Text>
+                  <Waves size={20} color="#FFB340" strokeWidth={2.2} />
                   <View style={styles.laundryAlertBody}>
                     <Text style={styles.laundryAlertTitle}>
                       {currentLoc === 'batangas_dorm' ? dormNeedsWash : homeNeedsWash}{' '}
@@ -165,7 +184,7 @@ export default function HomeScreen() {
                   ]}
                 >
                   <View style={styles.locCardTop}>
-                    <Text style={styles.locCardEmoji}>🏫</Text>
+                    <LocationIcon location="batangas_dorm" size={24} color={Colors.textPrimary} strokeWidth={2} />
                     {currentLoc === 'batangas_dorm' && (
                       <View style={styles.currentBadge}>
                         <Text style={styles.currentBadgeText}>HERE</Text>
@@ -193,7 +212,7 @@ export default function HomeScreen() {
                   ]}
                 >
                   <View style={styles.locCardTop}>
-                    <Text style={styles.locCardEmoji}>🏠</Text>
+                    <LocationIcon location="calamba_home" size={24} color={Colors.textPrimary} strokeWidth={2} />
                     {currentLoc === 'calamba_home' && (
                       <View style={styles.currentBadge}>
                         <Text style={styles.currentBadgeText}>HERE</Text>
@@ -216,7 +235,7 @@ export default function HomeScreen() {
             >
               <View style={styles.bagCard}>
                 <View style={styles.bagCardLeft}>
-                  <Text style={styles.bagCardEmoji}>🎒</Text>
+                  <LocationIcon location="in_transit_bag" size={22} color={Colors.textPrimary} strokeWidth={2} />
                   <View>
                     <Text style={styles.bagCardTitle}>In-Transit Bag</Text>
                     <Text style={styles.bagCardSub}>
@@ -228,7 +247,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.bagCardRight}>
                   <Text style={styles.bagCardCount}>{bagItems.length}</Text>
-                  <Text style={styles.bagCardArrow}>›</Text>
+                  <ChevronRight size={18} color={Colors.textTertiary} />
                 </View>
               </View>
             </PressableScale>
@@ -248,7 +267,9 @@ export default function HomeScreen() {
                 style={styles.actionCol}
               >
                 <View style={styles.actionCard}>
-                  <Text style={styles.actionEmoji}>✨</Text>
+                  <View style={styles.actionIconBox}>
+                    <Sparkles size={20} color="#FFFFFF" strokeWidth={2} />
+                  </View>
                   <Text style={styles.actionTitle}>Generate Fit</Text>
                   <Text style={styles.actionSub}>Roll today's outfit</Text>
                 </View>
@@ -261,7 +282,9 @@ export default function HomeScreen() {
                 style={styles.actionCol}
               >
                 <View style={styles.actionCard}>
-                  <Text style={styles.actionEmoji}>🧳</Text>
+                  <View style={styles.actionIconBox}>
+                    <Luggage size={20} color="#FFFFFF" strokeWidth={2} />
+                  </View>
                   <Text style={styles.actionTitle}>Pack & Move</Text>
                   <Text style={styles.actionSub}>Transfer luggage</Text>
                 </View>
@@ -274,7 +297,9 @@ export default function HomeScreen() {
                 style={styles.actionCol}
               >
                 <View style={styles.actionCard}>
-                  <Text style={styles.actionEmoji}>＋</Text>
+                  <View style={styles.actionIconBox}>
+                    <Plus size={20} color="#FFFFFF" strokeWidth={2} />
+                  </View>
                   <Text style={styles.actionTitle}>Add Clothes</Text>
                   <Text style={styles.actionSub}>Log a new piece</Text>
                 </View>
@@ -329,7 +354,7 @@ export default function HomeScreen() {
                     Search, filter, or manage all {totalItems} items
                   </Text>
                 </View>
-                <Text style={styles.browseClosetArrow}>→</Text>
+                <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.2} />
               </View>
             </PressableScale>
           </FadeSlideIn>
@@ -561,9 +586,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  actionEmoji: {
-    fontSize: 22,
-    marginBottom: 6,
+  actionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   actionTitle: {
     color: Colors.textPrimary,

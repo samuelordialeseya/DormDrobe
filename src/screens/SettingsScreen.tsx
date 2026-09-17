@@ -13,6 +13,12 @@ import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
 import { AppStorage } from '../utils/storage';
+import {
+  Cloud,
+  BarChart3,
+  Layers,
+  Shirt,
+} from '../components/AppIcons';
 
 export default function SettingsScreen() {
   const { items } = useWardrobe();
@@ -28,7 +34,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await AppStorage.removeItem('@dormdrobe/clothing');
-            Alert.alert('Done', 'Data cleared. Restart the app to reload mock data.');
+            Alert.alert('Reset Complete', 'Restart the app to reload fresh mock data.');
           },
         },
       ],
@@ -36,12 +42,12 @@ export default function SettingsScreen() {
   };
 
   const stats = [
-    { label: 'Total Items', value: items.length, color: Colors.textPrimary },
-    { label: 'Clean', value: items.filter((i) => i.status === 'clean').length, color: Colors.statusClean },
-    { label: 'Worn', value: items.filter((i) => i.status === 'worn').length, color: Colors.statusWorn },
-    { label: 'Calamba', value: items.filter((i) => i.location === 'calamba_home').length, color: Colors.textSecondary },
-    { label: 'Batangas', value: items.filter((i) => i.location === 'batangas_dorm').length, color: Colors.textSecondary },
-    { label: 'In Bag', value: items.filter((i) => i.location === 'in_transit_bag').length, color: Colors.textSecondary },
+    { label: 'Total Pieces', value: items.length, color: Colors.textPrimary },
+    { label: 'Clean & Ready', value: items.filter((i) => i.status === 'clean').length, color: Colors.statusClean },
+    { label: 'Needs Wash', value: items.filter((i) => i.status === 'worn' || i.status === 'in_laundry').length, color: Colors.statusWorn },
+    { label: 'Batangas Dorm', value: items.filter((i) => i.location === 'batangas_dorm').length, color: Colors.accent },
+    { label: 'Calamba Home', value: items.filter((i) => i.location === 'calamba_home').length, color: Colors.textSecondary },
+    { label: 'In-Transit Bag', value: items.filter((i) => i.location === 'in_transit_bag').length, color: Colors.statusDrying },
   ];
 
   return (
@@ -61,7 +67,9 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <View style={styles.specular} />
               <View style={styles.cardHeader}>
-                <Text style={styles.cardIcon}>☁️</Text>
+                <View style={styles.cardIconBox}>
+                  <Cloud size={20} color={Colors.textPrimary} strokeWidth={2} />
+                </View>
                 <View style={styles.cardHeaderText}>
                   <Text style={styles.cardTitle}>Cloud Sync</Text>
                   <View style={styles.statusRow}>
@@ -90,7 +98,9 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <View style={styles.specular} />
               <View style={styles.cardHeader}>
-                <Text style={styles.cardIcon}>📊</Text>
+                <View style={styles.cardIconBox}>
+                  <BarChart3 size={20} color={Colors.textPrimary} strokeWidth={2} />
+                </View>
                 <View style={styles.cardHeaderText}>
                   <Text style={styles.cardTitle}>Wardrobe Stats</Text>
                   <Text style={styles.cardSubtitle}>{items.length} items tracked</Text>
@@ -112,7 +122,9 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <View style={styles.specular} />
               <View style={styles.cardHeader}>
-                <Text style={styles.cardIcon}>🗄️</Text>
+                <View style={styles.cardIconBox}>
+                  <Layers size={20} color={Colors.textPrimary} strokeWidth={2} />
+                </View>
                 <View style={styles.cardHeaderText}>
                   <Text style={styles.cardTitle}>Data Management</Text>
                 </View>
@@ -134,7 +146,7 @@ export default function SettingsScreen() {
               <View style={styles.specular} />
               <PressableScale scaleTo={0.92}>
                 <View style={styles.aboutLogo}>
-                  <Text style={styles.aboutLogoText}>👕</Text>
+                  <Shirt size={32} color="#FFFFFF" strokeWidth={1.8} />
                 </View>
               </PressableScale>
               <Text style={styles.aboutAppName}>DormDrobe</Text>
@@ -194,7 +206,14 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.md,
   },
-  cardIcon: { fontSize: 22 },
+  cardIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: Radii.md,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardHeaderText: { flex: 1 },
   cardTitle: {
     color: Colors.textPrimary,

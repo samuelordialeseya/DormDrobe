@@ -15,6 +15,13 @@ import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
+import {
+  LocationIcon,
+  Waves,
+  Luggage,
+  Sparkles,
+  ChevronRight,
+} from '../components/AppIcons';
 
 type Mode = 'laundry' | 'pack';
 
@@ -23,11 +30,6 @@ const LOC_SHORT: Record<Location, string> = {
   calamba_home: 'Calamba',
   batangas_dorm: 'Batangas',
   in_transit_bag: 'In Bag',
-};
-const LOC_ICONS: Record<Location, string> = {
-  calamba_home: '🏠',
-  batangas_dorm: '🏫',
-  in_transit_bag: '🎒',
 };
 
 export default function BatchActionScreen() {
@@ -121,7 +123,19 @@ export default function BatchActionScreen() {
                   onPress={() => setMode(m)}
                   style={[styles.modeBtn, active && styles.modeBtnActive]}
                 >
-                  <Text style={styles.modeBtnIcon}>{m === 'laundry' ? '🧺' : '🎒'}</Text>
+                  {m === 'laundry' ? (
+                    <Waves
+                      size={16}
+                      color={active ? Colors.textPrimary : Colors.textTertiary}
+                      strokeWidth={2}
+                    />
+                  ) : (
+                    <Luggage
+                      size={16}
+                      color={active ? Colors.textPrimary : Colors.textTertiary}
+                      strokeWidth={2}
+                    />
+                  )}
                   <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
                     {m === 'laundry' ? 'Laundry Day' : 'Pack / Move'}
                   </Text>
@@ -144,7 +158,12 @@ export default function BatchActionScreen() {
                   onPress={() => { setSelectedLocation(loc); setSelectedIds(new Set()); }}
                   style={[styles.locChip, active && styles.locChipActive]}
                 >
-                  <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
+                  <LocationIcon
+                    location={loc}
+                    size={14}
+                    color={active ? Colors.textPrimary : Colors.textTertiary}
+                    strokeWidth={2}
+                  />
                   <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
                 </PressableScale>
               );
@@ -160,13 +179,13 @@ export default function BatchActionScreen() {
                 <View style={styles.actionCard}>
                   <View style={styles.specular} />
                   <View style={[styles.actionIconBg, { backgroundColor: Colors.statusWorn + '18', borderColor: Colors.statusWorn + '40' }]}>
-                    <Text style={styles.actionEmoji}>🧺</Text>
+                    <Waves size={22} color={Colors.statusWorn} strokeWidth={2} />
                   </View>
                   <View style={styles.actionCardBody}>
                     <Text style={styles.actionTitle}>Mark Worn → In Laundry</Text>
                     <Text style={styles.actionDesc}>{wornAtLocation.length} worn at {LOC_SHORT[selectedLocation]}</Text>
                   </View>
-                  <Text style={styles.actionArrow}>›</Text>
+                  <ChevronRight size={18} color={Colors.textTertiary} />
                 </View>
               </PressableScale>
             </FadeSlideIn>
@@ -176,13 +195,13 @@ export default function BatchActionScreen() {
                 <View style={styles.actionCard}>
                   <View style={styles.specular} />
                   <View style={[styles.actionIconBg, { backgroundColor: Colors.statusClean + '18', borderColor: Colors.statusClean + '40' }]}>
-                    <Text style={styles.actionEmoji}>✨</Text>
+                    <Sparkles size={22} color={Colors.statusClean} strokeWidth={2} />
                   </View>
                   <View style={styles.actionCardBody}>
                     <Text style={styles.actionTitle}>Mark Laundry → Clean</Text>
                     <Text style={styles.actionDesc}>{laundryAtLocation.length} in-laundry at {LOC_SHORT[selectedLocation]}</Text>
                   </View>
-                  <Text style={styles.actionArrow}>›</Text>
+                  <ChevronRight size={18} color={Colors.textTertiary} />
                 </View>
               </PressableScale>
             </FadeSlideIn>
@@ -201,7 +220,12 @@ export default function BatchActionScreen() {
                       onPress={() => setPackTarget(loc)}
                       style={[styles.locChip, active && styles.locChipActive]}
                     >
-                      <Text style={styles.locIcon}>{LOC_ICONS[loc]}</Text>
+                      <LocationIcon
+                        location={loc}
+                        size={14}
+                        color={active ? Colors.textPrimary : Colors.textTertiary}
+                        strokeWidth={2}
+                      />
                       <Text style={[styles.locText, active && styles.locTextActive]}>{LOC_SHORT[loc]}</Text>
                     </PressableScale>
                   );

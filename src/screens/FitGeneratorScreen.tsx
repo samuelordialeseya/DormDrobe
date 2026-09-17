@@ -14,6 +14,13 @@ import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
+import {
+  LocationIcon,
+  CategoryIcon,
+  Shuffle,
+  Sparkles,
+  Shirt,
+} from '../components/AppIcons';
 
 export default function FitGeneratorScreen() {
   const { items, updateItem } = useWardrobe();
@@ -132,7 +139,7 @@ export default function FitGeneratorScreen() {
     });
 
     Alert.alert(
-      'Outfit Worn! ✨',
+      'Outfit Worn',
       `Marked ${wornItems.length} items as worn. They are now tracked in your laundry cycle.`
     );
   };
@@ -158,13 +165,19 @@ export default function FitGeneratorScreen() {
                   selectedLoc === 'batangas_dorm' && styles.locTabActive,
                 ]}
               >
+                <LocationIcon
+                  location="batangas_dorm"
+                  size={12}
+                  color={selectedLoc === 'batangas_dorm' ? Colors.textPrimary : Colors.textTertiary}
+                  strokeWidth={2}
+                />
                 <Text
                   style={[
                     styles.locTabText,
                     selectedLoc === 'batangas_dorm' && styles.locTabTextActive,
                   ]}
                 >
-                  🏫 Dorm
+                  Dorm
                 </Text>
               </PressableScale>
 
@@ -176,13 +189,19 @@ export default function FitGeneratorScreen() {
                   selectedLoc === 'calamba_home' && styles.locTabActive,
                 ]}
               >
+                <LocationIcon
+                  location="calamba_home"
+                  size={12}
+                  color={selectedLoc === 'calamba_home' ? Colors.textPrimary : Colors.textTertiary}
+                  strokeWidth={2}
+                />
                 <Text
                   style={[
                     styles.locTabText,
                     selectedLoc === 'calamba_home' && styles.locTabTextActive,
                   ]}
                 >
-                  🏠 Home
+                  Home
                 </Text>
               </PressableScale>
             </View>
@@ -195,8 +214,13 @@ export default function FitGeneratorScreen() {
               scaleTo={0.94}
               style={[styles.filterChip, cleanOnly && styles.filterChipActive]}
             >
+              <Sparkles
+                size={12}
+                color={cleanOnly ? Colors.textPrimary : Colors.textTertiary}
+                strokeWidth={2}
+              />
               <Text style={[styles.filterText, cleanOnly && styles.filterTextActive]}>
-                🧼 Clean Only
+                Clean Only
               </Text>
             </PressableScale>
 
@@ -205,8 +229,13 @@ export default function FitGeneratorScreen() {
               scaleTo={0.94}
               style={[styles.filterChip, uniformOnly && styles.filterChipActive]}
             >
+              <Shirt
+                size={12}
+                color={uniformOnly ? Colors.textPrimary : Colors.textTertiary}
+                strokeWidth={2}
+              />
               <Text style={[styles.filterText, uniformOnly && styles.filterTextActive]}>
-                👕 Uniform Tees
+                Uniform Tees
               </Text>
             </PressableScale>
           </View>
@@ -222,7 +251,7 @@ export default function FitGeneratorScreen() {
           <FadeSlideIn delay={40} fromY={8}>
             <OutfitRowSlider
               title="TOPS & OUTERWEAR"
-              icon="🧥"
+              icon={<CategoryIcon category="tops" size={14} color={Colors.textSecondary} />}
               items={tops}
               selectedIndex={topIdx}
               onSelectIndex={setTopIdx}
@@ -236,7 +265,7 @@ export default function FitGeneratorScreen() {
           <FadeSlideIn delay={80} fromY={8}>
             <OutfitRowSlider
               title="BOTTOMS & PANTS"
-              icon="👖"
+              icon={<CategoryIcon category="bottoms" size={14} color={Colors.textSecondary} />}
               items={bottoms}
               selectedIndex={bottomIdx}
               onSelectIndex={setBottomIdx}
@@ -250,7 +279,7 @@ export default function FitGeneratorScreen() {
           <FadeSlideIn delay={120} fromY={8}>
             <OutfitRowSlider
               title="FOOTWEAR"
-              icon="👟"
+              icon={<CategoryIcon category="footwear" size={14} color={Colors.textSecondary} />}
               items={shoes}
               selectedIndex={shoesIdx}
               onSelectIndex={setShoesIdx}
@@ -264,7 +293,7 @@ export default function FitGeneratorScreen() {
           <FadeSlideIn delay={160} fromY={8}>
             <OutfitRowSlider
               title="BAGS & ACCESSORIES"
-              icon="🎒"
+              icon={<CategoryIcon category="accessories" size={14} color={Colors.textSecondary} />}
               items={accessories}
               selectedIndex={accIdx}
               onSelectIndex={setAccIdx}
@@ -282,7 +311,8 @@ export default function FitGeneratorScreen() {
                 scaleTo={0.96}
                 style={styles.shuffleBtn}
               >
-                <Text style={styles.shuffleText}>🎲  Shuffle Unlocked</Text>
+                <Shuffle size={15} color={Colors.textPrimary} strokeWidth={2.2} />
+                <Text style={styles.shuffleText}>Shuffle Unlocked</Text>
               </PressableScale>
 
               <PressableScale
@@ -290,7 +320,8 @@ export default function FitGeneratorScreen() {
                 scaleTo={0.96}
                 style={styles.wearBtn}
               >
-                <Text style={styles.wearText}>Wear Today ✨</Text>
+                <Sparkles size={15} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.wearText}>Wear Today</Text>
               </PressableScale>
             </View>
           </FadeSlideIn>
@@ -334,8 +365,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderGlass,
   },
   locTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: Radii.pill,
   },
   locTabActive: {
@@ -359,8 +393,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: Radii.pill,
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
@@ -394,6 +431,8 @@ const styles = StyleSheet.create({
   },
   shuffleBtn: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 8,
     backgroundColor: Colors.glassBright,
     borderRadius: Radii.pill,
     paddingVertical: 13,
@@ -410,6 +449,8 @@ const styles = StyleSheet.create({
   },
   wearBtn: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 8,
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderRadius: Radii.pill,
     paddingVertical: 13,

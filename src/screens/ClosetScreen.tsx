@@ -18,6 +18,7 @@ import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
 import { Status, STATUS_LABELS, STATUS_COLORS } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
+import { Plus, Search, X, Shirt } from '../components/AppIcons';
 
 const STATUS_OPTIONS: (Status | null)[] = [null, 'clean', 'worn', 'in_laundry', 'drying', 'misplaced'];
 
@@ -62,7 +63,8 @@ export default function ClosetScreen() {
                 scaleTo={0.92}
               >
                 <View style={styles.addBtn}>
-                  <Text style={styles.addBtnText}>＋ Add</Text>
+                  <Plus size={13} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={styles.addBtnText}>Add</Text>
                 </View>
               </PressableScale>
               <View style={styles.headerStatBadge}>
@@ -96,7 +98,7 @@ export default function ClosetScreen() {
         {/* Search */}
         <FadeSlideIn delay={100} fromY={10}>
           <View style={styles.searchWrap}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Search size={16} color={Colors.textTertiary} strokeWidth={2} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search by name, brand, color…"
@@ -107,7 +109,7 @@ export default function ClosetScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <Text style={styles.clearBtnText}>✕</Text>
+                <X size={15} color={Colors.textTertiary} strokeWidth={2.2} />
               </TouchableOpacity>
             )}
           </View>
@@ -156,7 +158,9 @@ export default function ClosetScreen() {
           ListEmptyComponent={
             <FadeSlideIn delay={200}>
               <View style={styles.empty}>
-                <Text style={styles.emptyEmoji}>👕</Text>
+                <View style={styles.emptyIconBox}>
+                  <Shirt size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                </View>
                 <Text style={styles.emptyTitle}>Nothing here</Text>
                 <Text style={styles.emptyText}>No items match your filters</Text>
               </View>
@@ -200,10 +204,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: Radii.pill,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
   },
@@ -318,10 +325,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 70,
   },
-  emptyEmoji: {
-    fontSize: 52,
+  emptyIconBox: {
     marginBottom: 14,
-    opacity: 0.3,
+    opacity: 0.4,
   },
   emptyTitle: {
     color: Colors.textSecondary,

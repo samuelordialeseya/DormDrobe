@@ -54,9 +54,9 @@ export interface ClothingItem {
 // ─── Display helpers ─────────────────────────────────────────────────
 
 export const LOCATION_LABELS: Record<Location, string> = {
-  calamba_home: '🏠 Calamba',
-  batangas_dorm: '🏫 Batangas',
-  in_transit_bag: '🎒 In Bag',
+  calamba_home: 'Calamba Home',
+  batangas_dorm: 'Batangas Dorm',
+  in_transit_bag: 'In-Transit Bag',
 };
 
 export const STATUS_LABELS: Record<Status, string> = {
@@ -85,10 +85,10 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 };
 
 export const CATEGORY_ICONS: Record<Category, string> = {
-  tops: '👕',
-  bottoms: '👖',
-  underwear: '🩲',
-  footwear: '👟',
-  outerwear: '🧥',
-  accessories: '🎒',
+  tops: 'tops',
+  bottoms: 'bottoms',
+  underwear: 'underwear',
+  footwear: 'footwear',
+  outerwear: 'outerwear',
+  accessories: 'accessories',
 };

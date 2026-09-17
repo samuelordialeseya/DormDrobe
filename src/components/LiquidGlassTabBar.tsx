@@ -9,20 +9,21 @@ import {
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Home, Shirt, Luggage, Sparkles, Settings } from 'lucide-react-native';
 import { Radii } from '../theme/theme';
 
 type TabDef = {
   name: string;
-  icon: string;
+  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
   label: string;
 };
 
 const TABS: TabDef[] = [
-  { name: 'Home', icon: '🏠', label: 'Home' },
-  { name: 'Closet', icon: '👕', label: 'Closet' },
-  { name: 'Batch', icon: '🧺', label: 'Actions' },
-  { name: 'FitGen', icon: '✨', label: 'Fit Gen' },
-  { name: 'Settings', icon: '⚙', label: 'Settings' },
+  { name: 'Home', Icon: Home, label: 'Home' },
+  { name: 'Closet', Icon: Shirt, label: 'Closet' },
+  { name: 'Batch', Icon: Luggage, label: 'Actions' },
+  { name: 'FitGen', Icon: Sparkles, label: 'Fit Gen' },
+  { name: 'Settings', Icon: Settings, label: 'Settings' },
 ];
 
 const PILL_H = 44;
@@ -41,9 +42,10 @@ interface TabButtonProps {
 
 function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
   const tab = TABS.find((t) => t.name === route.name) ?? TABS[0];
+  const IconComponent = tab.Icon;
 
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0.88)).current;
-  const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0.38)).current;
+  const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0.45)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -54,12 +56,14 @@ function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
         friction: 24,
       }),
       Animated.timing(opacityAnim, {
-        toValue: isFocused ? 1 : 0.38,
+        toValue: isFocused ? 1 : 0.45,
         duration: 180,
         useNativeDriver: true,
       }),
     ]).start();
   }, [isFocused]);
+
+  const iconColor = isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.40)';
 
   return (
     <TouchableOpacity
@@ -73,7 +77,7 @@ function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
           { transform: [{ scale: scaleAnim }], opacity: opacityAnim },
         ]}
       >
-        <Text style={styles.tabIcon}>{tab.icon}</Text>
+        <IconComponent size={20} color={iconColor} strokeWidth={isFocused ? 2.2 : 1.8} />
         <Text
           style={[
             styles.tabLabel,
@@ -225,11 +229,7 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     alignItems: 'center',
-    gap: 2,
-  },
-  tabIcon: {
-    fontSize: 20,
-    lineHeight: 24,
+    gap: 3,
   },
   tabLabel: {
     fontSize: 10,
@@ -240,6 +240,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.95)',
   },
   tabLabelInactive: {
-    color: 'rgba(255,255,255,0.32)',
+    color: 'rgba(255,255,255,0.40)',
   },
 });

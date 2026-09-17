@@ -19,7 +19,6 @@ import {
   Location,
   Status,
   CATEGORY_LABELS,
-  CATEGORY_ICONS,
   STATUS_LABELS,
   STATUS_COLORS,
 } from '../types/wardrobe';
@@ -28,6 +27,13 @@ import { useWardrobe } from '../context/WardrobeContext';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
 import { removeImageBackground } from '../utils/backgroundRemoval';
+import {
+  CategoryIcon,
+  LocationIcon,
+  Camera,
+  RotateCcw,
+  Sparkles,
+} from '../components/AppIcons';
 
 const CATEGORIES: Category[] = ['tops', 'bottoms', 'underwear', 'footwear', 'outerwear', 'accessories'];
 const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
@@ -118,7 +124,7 @@ export default function AddItemScreen() {
       createdAt: new Date().toISOString(),
     });
 
-    Alert.alert('Added! ✨', `${name} has been added to your wardrobe.`);
+    Alert.alert('Item Added', `${name} has been added to your wardrobe.`);
     setName('');
     setColor('');
     setBrand('');
@@ -182,9 +188,16 @@ export default function AddItemScreen() {
                           {isProcessingBg ? (
                             <ActivityIndicator size="small" color="#FFFFFF" />
                           ) : (
-                            <Text style={styles.removeBgText}>
-                              {cutoutUri ? '↺ Re-Cutout' : '✨ Remove Background (Non-AI)'}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              {cutoutUri ? (
+                                <RotateCcw size={14} color="#FFFFFF" strokeWidth={2.2} />
+                              ) : (
+                                <Sparkles size={14} color="#FFFFFF" strokeWidth={2.2} />
+                              )}
+                              <Text style={styles.removeBgText}>
+                                {cutoutUri ? 'Re-Cutout' : 'Remove Background (Non-AI)'}
+                              </Text>
+                            </View>
                           )}
                         </PressableScale>
 
@@ -265,7 +278,7 @@ export default function AddItemScreen() {
                   <PressableScale scaleTo={0.97} onPress={pickImage}>
                     <View style={styles.emptyPhotoPicker}>
                       <View style={styles.cameraIconRing}>
-                        <Text style={styles.cameraIcon}>📷</Text>
+                        <Camera size={26} color={Colors.textPrimary} strokeWidth={1.8} />
                       </View>
                       <Text style={styles.photoLabel}>Tap to snap or upload photo</Text>
                       <Text style={styles.photoSubLabel}>
@@ -328,7 +341,12 @@ export default function AddItemScreen() {
                       onPress={() => setCategory(cat)}
                     >
                       <View style={[styles.chip, active && styles.chipActive]}>
-                        <Text style={styles.chipIcon}>{CATEGORY_ICONS[cat]}</Text>
+                        <CategoryIcon
+                          category={cat}
+                          size={13}
+                          color={active ? Colors.textPrimary : Colors.textTertiary}
+                          strokeWidth={2}
+                        />
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
                           {CATEGORY_LABELS[cat]}
                         </Text>
@@ -352,6 +370,12 @@ export default function AddItemScreen() {
                       onPress={() => setLocation(loc)}
                     >
                       <View style={[styles.chip, active && styles.chipActive]}>
+                        <LocationIcon
+                          location={loc}
+                          size={13}
+                          color={active ? Colors.textPrimary : Colors.textTertiary}
+                          strokeWidth={2}
+                        />
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
                           {LOC_SHORT[loc]}
                         </Text>

@@ -8,13 +8,6 @@ interface Props {
   size?: 'sm' | 'md';
 }
 
-const STATUS_ICONS: Record<Status, string> = {
-  clean: '✦',
-  worn: '◆',
-  in_laundry: '◈',
-  drying: '◇',
-  misplaced: '◉',
-};
 
 export default function StatusBadge({ status, size = 'md' }: Props) {
   const color = STATUS_COLORS[status];

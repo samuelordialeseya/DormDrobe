@@ -3,14 +3,9 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Location, LOCATION_LABELS } from '../types/wardrobe';
 import { Colors, Radii, Spacing } from '../theme/theme';
 import PressableScale from './PressableScale';
+import { LocationIcon, Layers } from './AppIcons';
 
 const LOCATIONS: (Location | null)[] = [null, 'calamba_home', 'batangas_dorm', 'in_transit_bag'];
-
-const LOCATION_ICONS: Record<string, string> = {
-  calamba_home: '🏠',
-  batangas_dorm: '🏫',
-  in_transit_bag: '🎒',
-};
 
 interface Props {
   selected: Location | null;
@@ -26,8 +21,8 @@ export default function LocationFilter({ selected, onSelect }: Props) {
     >
       {LOCATIONS.map((loc) => {
         const active = loc === selected;
-        const icon = loc ? LOCATION_ICONS[loc] : '◈';
-        const label = loc ? LOCATION_LABELS[loc].replace(/^[^\s]+\s/, '') : 'All';
+        const label = loc ? (loc === 'batangas_dorm' ? 'Dorm' : loc === 'calamba_home' ? 'Home' : 'In Bag') : 'All';
+        const iconColor = active ? Colors.textPrimary : Colors.textTertiary;
 
         return (
           <PressableScale
@@ -36,7 +31,11 @@ export default function LocationFilter({ selected, onSelect }: Props) {
             scaleTo={0.93}
           >
             <View style={[styles.chip, active && styles.chipActive]}>
-              <Text style={styles.chipIcon}>{icon}</Text>
+              {loc ? (
+                <LocationIcon location={loc} size={14} color={iconColor} strokeWidth={2} />
+              ) : (
+                <Layers size={14} color={iconColor} strokeWidth={2} />
+              )}
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
                 {label}
               </Text>
@@ -58,20 +57,17 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 8,
     borderRadius: Radii.pill,
     backgroundColor: Colors.glassLight,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    gap: 5,
+    gap: 6,
   },
   chipActive: {
     backgroundColor: Colors.glassBright,
     borderColor: Colors.borderGlassBright,
-  },
-  chipIcon: {
-    fontSize: 13,
   },
   chipText: {
     color: Colors.textTertiary,

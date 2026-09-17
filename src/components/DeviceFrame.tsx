@@ -6,6 +6,7 @@ import {
   useWindowDimensions,
   TouchableOpacity,
 } from 'react-native';
+import { Smartphone, Monitor } from './AppIcons';
 
 interface Props {
   children: React.ReactNode;
@@ -41,8 +42,13 @@ export default function DeviceFrame({ children }: Props) {
             style={[styles.switchBtn, isIPhoneMode && styles.switchBtnActive]}
             activeOpacity={0.75}
           >
+            <Smartphone
+              size={13}
+              color={isIPhoneMode ? '#FFFFFF' : 'rgba(255,255,255,0.45)'}
+              strokeWidth={2}
+            />
             <Text style={[styles.switchText, isIPhoneMode && styles.switchTextActive]}>
-              📱 iPhone 13 (390 × 844)
+              iPhone 13 (390 × 844)
             </Text>
           </TouchableOpacity>
 
@@ -51,8 +57,13 @@ export default function DeviceFrame({ children }: Props) {
             style={[styles.switchBtn, !isIPhoneMode && styles.switchBtnActive]}
             activeOpacity={0.75}
           >
+            <Monitor
+              size={13}
+              color={!isIPhoneMode ? '#FFFFFF' : 'rgba(255,255,255,0.45)'}
+              strokeWidth={2}
+            />
             <Text style={[styles.switchText, !isIPhoneMode && styles.switchTextActive]}>
-              💻 Full PC View
+              Full PC View
             </Text>
           </TouchableOpacity>
         </View>
@@ -152,6 +163,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   switchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 20,

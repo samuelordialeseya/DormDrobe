@@ -1,9 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
-import { ClothingItem, CATEGORY_ICONS, LOCATION_LABELS } from '../types/wardrobe';
+import { View, Text, StyleSheet, Animated, Image } from 'react-native';
+import { ClothingItem, LOCATION_LABELS } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
 import { Colors, Radii, Spacing } from '../theme/theme';
+import { CategoryIcon, LocationIcon, Check } from './AppIcons';
 
 interface Props {
   item: ClothingItem;
@@ -46,8 +47,6 @@ export default function ClothingCard({
   onToggleSelect,
   delay = 0,
 }: Props) {
-  const emoji = CATEGORY_ICONS[item.category];
-
   // Entrance animation
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
@@ -98,7 +97,20 @@ export default function ClothingCard({
 
         {/* Thumbnail */}
         <View style={[styles.thumb, selected && styles.thumbSelected]}>
-          <Text style={styles.emoji}>{emoji}</Text>
+          {item.imageUrl ? (
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={styles.thumbImg}
+              resizeMode="contain"
+            />
+          ) : (
+            <CategoryIcon
+              category={item.category}
+              size={28}
+              color="rgba(255,255,255,0.75)"
+              strokeWidth={1.8}
+            />
+          )}
           <View
             style={[
               styles.colorSwatch,
@@ -114,7 +126,7 @@ export default function ClothingCard({
               ]}
             >
               {selected && (
-                <Animated.Text style={styles.checkmark}>✓</Animated.Text>
+                <Check size={12} color="#FFFFFF" strokeWidth={3} />
               )}
             </Animated.View>
           )}
@@ -141,7 +153,10 @@ export default function ClothingCard({
 
           <View style={styles.footer}>
             <StatusBadge status={item.status} size="sm" />
-            <Text style={styles.location}>{LOCATION_LABELS[item.location]}</Text>
+            <View style={styles.locBadge}>
+              <LocationIcon location={item.location} size={11} color={Colors.textTertiary} strokeWidth={2} />
+              <Text style={styles.location}>{LOCATION_LABELS[item.location]}</Text>
+            </View>
           </View>
         </View>
       </PressableScale>
@@ -196,8 +211,9 @@ const styles = StyleSheet.create({
   thumbSelected: {
     borderColor: Colors.borderGlassBright,
   },
-  emoji: {
-    fontSize: 30,
+  thumbImg: {
+    width: 56,
+    height: 56,
   },
   colorSwatch: {
     position: 'absolute',
@@ -273,6 +289,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
+  },
+  locBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   location: {
     color: Colors.textTertiary,
