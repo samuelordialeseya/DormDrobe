@@ -133,7 +133,24 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         // Local storage / first launch
         const stored = await AppStorage.getItem(STORAGE_KEY);
         if (stored) {
-          setItems(JSON.parse(stored));
+          const parsed: ClothingItem[] = JSON.parse(stored);
+          // Auto-backfill sample images for seeded mock items that lacked images
+          let hasBackfill = false;
+          const updated = parsed.map((item) => {
+            if (!item.imageUrl) {
+              const mockMatch = MOCK_CLOTHING.find((m) => m.id === item.id);
+              if (mockMatch?.imageUrl) {
+                hasBackfill = true;
+                return { ...item, imageUrl: mockMatch.imageUrl };
+              }
+            }
+            return item;
+          });
+
+          setItems(updated);
+          if (hasBackfill) {
+            await persist(updated);
+          }
         } else {
           setItems(MOCK_CLOTHING);
           await persist(MOCK_CLOTHING);

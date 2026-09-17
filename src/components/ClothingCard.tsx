@@ -97,19 +97,21 @@ export default function ClothingCard({
 
         {/* Thumbnail */}
         <View style={[styles.thumb, selected && styles.thumbSelected]}>
-          {item.imageUrl ? (
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={styles.thumbImg}
-              resizeMode="contain"
-            />
-          ) : (
-            <CategoryIcon
-              category={item.category}
-              size={28}
-              color={Colors.textSecondary}
-            />
-          )}
+          <View style={styles.thumbInner}>
+            {item.imageUrl ? (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.thumbImg}
+                resizeMode="cover"
+              />
+            ) : (
+              <CategoryIcon
+                category={item.category}
+                size={28}
+                color={Colors.textSecondary}
+              />
+            )}
+          </View>
           <View
             style={[
               styles.colorSwatch,
@@ -201,8 +203,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 14,
     marginLeft: 0,
     position: 'relative',
@@ -211,9 +211,18 @@ const styles = StyleSheet.create({
   thumbSelected: {
     borderColor: 'rgba(0, 0, 0, 0.20)',
   },
+  thumbInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: Radii.lg - 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F2F7',
+  },
   thumbImg: {
-    width: 56,
-    height: 56,
+    width: '100%',
+    height: '100%',
   },
   colorSwatch: {
     position: 'absolute',

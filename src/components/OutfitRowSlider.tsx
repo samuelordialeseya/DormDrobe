@@ -133,20 +133,22 @@ export default function OutfitRowSlider({
               >
                 {/* Garment Image / Category Vector Icon Preview */}
                 <View style={styles.thumbBox}>
-                  {item.imageUrl ? (
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.thumbImage}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <CategoryIcon
-                      category={item.category}
-                      size={28}
-                      color="rgba(255,255,255,0.75)"
-                      strokeWidth={1.8}
-                    />
-                  )}
+                  <View style={styles.thumbInner}>
+                    {item.imageUrl ? (
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.thumbImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <CategoryIcon
+                        category={item.category}
+                        size={28}
+                        color={Colors.textSecondary}
+                        strokeWidth={1.8}
+                      />
+                    )}
+                  </View>
                   <View
                     style={[
                       styles.colorDot,
@@ -285,16 +287,23 @@ const styles = StyleSheet.create({
     height: 78,
     borderRadius: Radii.md,
     backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 10,
     position: 'relative',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.06)',
   },
+  thumbInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: Radii.md - 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F2F7',
+  },
   thumbImage: {
-    width: 54,
-    height: 66,
+    width: '100%',
+    height: '100%',
   },
   colorDot: {
     position: 'absolute',
