@@ -123,8 +123,33 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
 
           if (!error && data && data.length > 0) {
             const parsed = data.map(fromDbItem);
-            setItems(parsed);
-            await persist(parsed);
+            let hasBackfill = false;
+            const enriched = parsed.map((item) => {
+              if (!item.imageUrl) {
+                const mockMatch = MOCK_CLOTHING.find(
+                  (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
+                );
+                if (mockMatch?.imageUrl) {
+                  hasBackfill = true;
+                  return { ...item, imageUrl: mockMatch.imageUrl };
+                }
+              }
+              return item;
+            });
+
+            setItems(enriched);
+            await persist(enriched);
+            if (hasBackfill) {
+              enriched.forEach((item) => {
+                if (item.imageUrl) {
+                  supabase
+                    .from('clothing_items')
+                    .update({ image_url: item.imageUrl })
+                    .eq('id', item.id)
+                    .then(() => {});
+                }
+              });
+            }
             setLoading(false);
             return;
           }
@@ -138,7 +163,9 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
           let hasBackfill = false;
           const updated = parsed.map((item) => {
             if (!item.imageUrl) {
-              const mockMatch = MOCK_CLOTHING.find((m) => m.id === item.id);
+              const mockMatch = MOCK_CLOTHING.find(
+                (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
+              );
               if (mockMatch?.imageUrl) {
                 hasBackfill = true;
                 return { ...item, imageUrl: mockMatch.imageUrl };

@@ -282,7 +282,7 @@ export const MOCK_CLOTHING: ClothingItem[] = [
   // ─── Footwear ───────────────────────────────────────────────────────
   {
     id: '5a',
-    name: 'White AF1 Low',
+    name: 'Nike Air Force 1',
     category: 'footwear',
     color: 'White',
     brand: 'Nike',
@@ -354,6 +354,20 @@ export const MOCK_CLOTHING: ClothingItem[] = [
   },
 
   // ─── Accessories ────────────────────────────────────────────────────
+  {
+    id: '4a',
+    name: 'Canvas Backpack',
+    category: 'accessories',
+    color: 'Navy',
+    brand: 'Fjallraven',
+    location: 'in_transit_bag',
+    status: 'clean',
+    imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+    isUniformWhiteTee: false,
+    lastWornAt: null,
+    notes: 'Commute bag',
+    createdAt: '2026-05-15T00:00:00Z',
+  },
   {
     id: '7a',
     name: 'Black Baseball Cap',

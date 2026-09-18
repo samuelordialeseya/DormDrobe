@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.20)',
   },
   thumbInner: {
-    width: '100%',
-    height: '100%',
+    width: 68,
+    height: 68,
     borderRadius: Radii.lg - 1,
     overflow: 'hidden',
     alignItems: 'center',
@@ -221,8 +221,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
   },
   thumbImg: {
-    width: '100%',
-    height: '100%',
+    width: 68,
+    height: 68,
   },
   colorSwatch: {
     position: 'absolute',
