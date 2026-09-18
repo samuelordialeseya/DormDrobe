@@ -3,7 +3,7 @@
 // boutique fashion glyphs without barrel-bundle overhead or Metro resolution issues.
 
 import React from 'react';
-import Svg, { Path, G } from 'react-native-svg';
+import Svg, { Path, G, Rect, Line } from 'react-native-svg';
 import { Category, Location } from '../types/wardrobe';
 
 export type IconWeight = 'light' | 'regular' | 'bold';
@@ -193,6 +193,21 @@ const GLYPHS = {
     "light": "M208 42H48a22 22 0 0 0-22 22v112a22 22 0 0 0 22 22h74v20H96a6 6 0 0 0 0 12h64a6 6 0 0 0 0-12h-26v-20h74a22 22 0 0 0 22-22V64a22 22 0 0 0-22-22M48 54h160a10 10 0 0 1 10 10v82H38V64a10 10 0 0 1 10-10m160 132H48a10 10 0 0 1-10-10v-18h180v18a10 10 0 0 1-10 10",
     "regular": "M208 40H48a24 24 0 0 0-24 24v112a24 24 0 0 0 24 24h72v16H96a8 8 0 0 0 0 16h64a8 8 0 0 0 0-16h-24v-16h72a24 24 0 0 0 24-24V64a24 24 0 0 0-24-24M48 56h160a8 8 0 0 1 8 8v80H40V64a8 8 0 0 1 8-8m160 128H48a8 8 0 0 1-8-8v-16h176v16a8 8 0 0 1-8 8",
     "bold": "M208 36H48a28 28 0 0 0-28 28v108a28 28 0 0 0 28 28h68v12H96a12 12 0 0 0 0 24h64a12 12 0 0 0 0-24h-20v-12h68a28 28 0 0 0 28-28V64a28 28 0 0 0-28-28M48 60h160a4 4 0 0 1 4 4v72H44V64a4 4 0 0 1 4-4m160 116H48a4 4 0 0 1-4-4v-12h168v12a4 4 0 0 1-4 4"
+  },
+  "PushPin": {
+    "light": "M233.91 82.79 173.22 22.1a14 14 0 0 0-19.81 0L98.93 76.77c-9.52-3.25-34-8.34-59.71 12.41A14 14 0 0 0 38.1 110l49.71 49.71-44.05 44a6 6 0 1 0 8.48 8.48l44.05-44.05L146 217.89a14 14 0 0 0 9.9 4.11h1a14 14 0 0 0 10.19-5.54c19.72-26.21 17.15-47.23 12.46-59.3l54.37-54.55a14 14 0 0 0-.01-19.82m-8.49 11.31-57.27 57.46a6 6 0 0 0-1.11 6.92c9.94 19.88-1.71 40.32-9.54 50.72a2 2 0 0 1-3 .2L46.58 101.51a2 2 0 0 1 .18-3c12.5-10.09 24.5-12.76 33.7-12.76a42.1 42.1 0 0 1 17.25 3.41 6 6 0 0 0 6.93-1.16l57.26-57.41a2 2 0 0 1 2.83 0l60.69 60.68a2 2 0 0 1 0 2.83",
+    "regular": "m235.32 81.37-60.69-60.68a16 16 0 0 0-22.63 0l-53.63 53.8c-10.66-3.34-35-7.37-60.4 13.14a16 16 0 0 0-1.29 23.78L85 159.71l-42.66 42.63a8 8 0 0 0 11.32 11.32L96.29 171l48.29 48.29A16 16 0 0 0 155.9 224h1.13a15.93 15.93 0 0 0 11.64-6.33c19.64-26.1 17.75-47.32 13.19-60L235.33 104a16 16 0 0 0-.01-22.63M224 92.69l-57.27 57.46a8 8 0 0 0-1.49 9.22c9.46 18.93-1.8 38.59-9.34 48.62L48 100.08c12.08-9.74 23.64-12.31 32.48-12.31A40.1 40.1 0 0 1 96.81 91a8 8 0 0 0 9.25-1.51L163.32 32 224 92.68Z",
+    "bold": "m238.15 78.54-60.69-60.68a20 20 0 0 0-28.3 0L97.2 70c-12.43-3.33-36.68-5.72-61.74 14.5a20 20 0 0 0-1.6 29.73l45.46 45.47-39.8 39.8a12 12 0 0 0 17 17l39.8-39.81 45.47 45.46a20 20 0 0 0 14.12 5.85c.46 0 .93 0 1.4-.05a20 20 0 0 0 14.56-7.95c4.69-6.23 11-16.13 14.44-28s3.45-22.88.16-33.4l51.7-51.87a20 20 0 0 0-.02-28.19m-74.26 68.79a12 12 0 0 0-2.23 13.84c3.43 6.86 6.9 21-6.28 40.65L54.08 100.53c21.09-14.59 39.53-6.64 41-6a11.67 11.67 0 0 0 13.81-2.29l54.43-54.61 55 55Z"
+  },
+  "DiceFive": {
+    "light": "M192 34H64a30 30 0 0 0-30 30v128a30 30 0 0 0 30 30h128a30 30 0 0 0 30-30V64a30 30 0 0 0-30-30m18 158a18 18 0 0 1-18 18H64a18 18 0 0 1-18-18V64a18 18 0 0 1 18-18h128a18 18 0 0 1 18 18ZM102 92a10 10 0 1 1-10-10 10 10 0 0 1 10 10m36 36a10 10 0 1 1-10-10 10 10 0 0 1 10 10m36-36a10 10 0 1 1-10-10 10 10 0 0 1 10 10m-72 72a10 10 0 1 1-10-10 10 10 0 0 1 10 10m72 0a10 10 0 1 1-10-10 10 10 0 0 1 10 10",
+    "regular": "M192 32H64a32 32 0 0 0-32 32v128a32 32 0 0 0 32 32h128a32 32 0 0 0 32-32V64a32 32 0 0 0-32-32m16 160a16 16 0 0 1-16 16H64a16 16 0 0 1-16-16V64a16 16 0 0 1 16-16h128a16 16 0 0 1 16 16ZM104 92a12 12 0 1 1-12-12 12 12 0 0 1 12 12m72 0a12 12 0 1 1-12-12 12 12 0 0 1 12 12m-72 72a12 12 0 1 1-12-12 12 12 0 0 1 12 12m36-36a12 12 0 1 1-12-12 12 12 0 0 1 12 12m36 36a12 12 0 1 1-12-12 12 12 0 0 1 12 12",
+    "bold": "M192 28H64a36 36 0 0 0-36 36v128a36 36 0 0 0 36 36h128a36 36 0 0 0 36-36V64a36 36 0 0 0-36-36m12 164a12 12 0 0 1-12 12H64a12 12 0 0 1-12-12V64a12 12 0 0 1 12-12h128a12 12 0 0 1 12 12ZM104 88a16 16 0 1 1-16-16 16 16 0 0 1 16 16m40 40a16 16 0 1 1-16-16 16 16 0 0 1 16 16m40-40a16 16 0 1 1-16-16 16 16 0 0 1 16 16m-80 80a16 16 0 1 1-16-16 16 16 0 0 1 16 16m80 0a16 16 0 1 1-16-16 16 16 0 0 1 16 16"
+  },
+  "DotsThreeVertical": {
+    "light": "M118 60a10 10 0 1 1 10 10 10 10 0 0 1-10-10m10 58a10 10 0 1 0 10 10 10 10 0 0 0-10-10m0 68a10 10 0 1 0 10 10 10 10 0 0 0-10-10",
+    "regular": "M140 128a12 12 0 1 1-12-12 12 12 0 0 1 12 12m-12-56a12 12 0 1 0-12-12 12 12 0 0 0 12 12m0 112a12 12 0 1 0 12 12 12 12 0 0 0-12-12",
+    "bold": "M112 60a16 16 0 1 1 16 16 16 16 0 0 1-16-16m16 52a16 16 0 1 0 16 16 16 16 0 0 0-16-16m0 68a16 16 0 1 0 16 16 16 16 0 0 0-16-16"
   }
 } as const;
 
@@ -226,6 +241,9 @@ export const XIcon = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.X} 
 export const DeviceMobile = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.DeviceMobile} />;
 export const Desktop = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.Desktop} />;
 export const PlusIcon = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.Plus} />;
+export const PushPin = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.PushPin} />;
+export const DiceFive = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.DiceFive} />;
+export const MoreVertical = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.DotsThreeVertical} />;
 
 // ─── Semantic Wardrobe Category Icons ────────────────────────────────
 
@@ -300,3 +318,48 @@ export const X = (p: AppIconProps) => <XIcon size={p.size ?? 16} color={p.color 
 export const Smartphone = (p: AppIconProps) => <DeviceMobile size={p.size ?? 16} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
 export const Monitor = (p: AppIconProps) => <Desktop size={p.size ?? 16} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
 export const Layers = (p: AppIconProps) => <CoatHanger size={p.size ?? 20} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
+export const Pin = (p: AppIconProps) => <PushPin size={p.size ?? 18} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
+export const Dice = (p: AppIconProps) => <DiceFive size={p.size ?? 20} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'bold'} style={p.style} />;
+
+export function LayoutRowsIcon({
+  rows,
+  active = false,
+  size = 18,
+}: {
+  rows: 2 | 3 | 4;
+  active?: boolean;
+  size?: number;
+}) {
+  const stroke = active ? '#7C3AED' : '#8E8E93';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="3"
+        stroke={stroke}
+        strokeWidth="2"
+        fill={active ? 'rgba(124, 58, 237, 0.08)' : 'none'}
+      />
+      {rows === 2 && (
+        <Line x1="3" y1="12" x2="21" y2="12" stroke={stroke} strokeWidth="1.8" />
+      )}
+      {rows === 3 && (
+        <>
+          <Line x1="3" y1="9" x2="21" y2="9" stroke={stroke} strokeWidth="1.8" />
+          <Line x1="3" y1="15" x2="21" y2="15" stroke={stroke} strokeWidth="1.8" />
+        </>
+      )}
+      {rows === 4 && (
+        <>
+          <Line x1="3" y1="7.5" x2="21" y2="7.5" stroke={stroke} strokeWidth="1.8" />
+          <Line x1="3" y1="12" x2="21" y2="12" stroke={stroke} strokeWidth="1.8" />
+          <Line x1="3" y1="16.5" x2="21" y2="16.5" stroke={stroke} strokeWidth="1.8" />
+        </>
+      )}
+    </Svg>
+  );
+}
+

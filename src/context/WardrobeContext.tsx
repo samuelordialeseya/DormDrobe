@@ -125,14 +125,12 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             const parsed = data.map(fromDbItem);
             let hasBackfill = false;
             const enriched = parsed.map((item) => {
-              if (!item.imageUrl) {
-                const mockMatch = MOCK_CLOTHING.find(
-                  (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
-                );
-                if (mockMatch?.imageUrl) {
-                  hasBackfill = true;
-                  return { ...item, imageUrl: mockMatch.imageUrl };
-                }
+              const mockMatch = MOCK_CLOTHING.find(
+                (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
+              );
+              if (mockMatch?.imageUrl && (!item.imageUrl || item.imageUrl.includes('unsplash.com'))) {
+                hasBackfill = true;
+                return { ...item, imageUrl: mockMatch.imageUrl };
               }
               return item;
             });
@@ -162,14 +160,12 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
           // Auto-backfill sample images for seeded mock items that lacked images
           let hasBackfill = false;
           const updated = parsed.map((item) => {
-            if (!item.imageUrl) {
-              const mockMatch = MOCK_CLOTHING.find(
-                (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
-              );
-              if (mockMatch?.imageUrl) {
-                hasBackfill = true;
-                return { ...item, imageUrl: mockMatch.imageUrl };
-              }
+            const mockMatch = MOCK_CLOTHING.find(
+              (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
+            );
+            if (mockMatch?.imageUrl && (!item.imageUrl || item.imageUrl.includes('unsplash.com'))) {
+              hasBackfill = true;
+              return { ...item, imageUrl: mockMatch.imageUrl };
             }
             return item;
           });
