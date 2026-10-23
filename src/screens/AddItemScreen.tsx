@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,14 +13,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   Category,
   Location,
   Status,
+  ClothingItem,
   CATEGORY_LABELS,
   STATUS_LABELS,
   STATUS_COLORS,
+  COLOR_SWATCHES,
 } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import { useWardrobe } from '../context/WardrobeContext';
@@ -33,40 +36,80 @@ import {
   Camera,
   RotateCcw,
   Sparkles,
+  X,
 } from '../components/AppIcons';
 
 const CATEGORIES: Category[] = ['tops', 'bottoms', 'underwear', 'footwear', 'outerwear', 'accessories'];
-const LOCATIONS: Location[] = ['calamba_home', 'batangas_dorm', 'in_transit_bag'];
-const STATUSES: Status[] = ['clean', 'worn', 'in_laundry', 'drying'];
+const LOCATIONS: Location[] = ['batangas_dorm', 'calamba_home', 'in_transit_bag'];
+const STATUSES: Status[] = ['clean', 'worn', 'in_laundry', 'drying', 'misplaced'];
 
 const LOC_SHORT: Record<Location, string> = {
-  calamba_home: 'Calamba',
-  batangas_dorm: 'Batangas',
+  batangas_dorm: 'Batangas Dorm',
+  calamba_home: 'Calamba Home',
   in_transit_bag: 'In Bag',
 };
 
 export default function AddItemScreen() {
-  const { addItem } = useWardrobe();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const editItem = route.params?.editItem as ClothingItem | undefined;
 
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<Category>('tops');
-  const [color, setColor] = useState('');
-  const [brand, setBrand] = useState('');
-  const [location, setLocation] = useState<Location>('batangas_dorm');
-  const [status, setStatus] = useState<Status>('clean');
-  const [isUniform, setIsUniform] = useState(false);
-  const [notes, setNotes] = useState('');
+  const { addItem, updateItem, currentLocation, showToast, getLocationLabel } = useWardrobe();
+
+  const [name, setName] = useState(editItem?.name ?? '');
+  const [category, setCategory] = useState<Category>(editItem?.category ?? 'tops');
+  const [color, setColor] = useState(editItem?.color ?? 'White');
+  const [brand, setBrand] = useState(editItem?.brand ?? '');
+  const [location, setLocation] = useState<Location>(editItem?.location ?? currentLocation);
+  const [status, setStatus] = useState<Status>(editItem?.status ?? 'clean');
+  const [isUniform, setIsUniform] = useState(editItem?.isUniformWhiteTee ?? false);
+  const [notes, setNotes] = useState(editItem?.notes ?? '');
 
   // Image & non-AI background removal states
-  const [originalUri, setOriginalUri] = useState<string | null>(null);
+  const [originalUri, setOriginalUri] = useState<string | null>(editItem?.imageUrl ?? null);
   const [cutoutUri, setCutoutUri] = useState<string | null>(null);
   const [isCutoutActive, setIsCutoutActive] = useState(false);
   const [isProcessingBg, setIsProcessingBg] = useState(false);
   const [bgTolerance, setBgTolerance] = useState(28);
 
-  const pickImage = async () => {
+  useEffect(() => {
+    if (editItem) {
+      setName(editItem.name);
+      setCategory(editItem.category);
+      setColor(editItem.color);
+      setBrand(editItem.brand ?? '');
+      setLocation(editItem.location);
+      setStatus(editItem.status);
+      setIsUniform(editItem.isUniformWhiteTee);
+      setNotes(editItem.notes);
+      setOriginalUri(editItem.imageUrl);
+    }
+  }, [editItem]);
+
+  // Gallery Picker
+  const pickFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      setOriginalUri(uri);
+      setCutoutUri(null);
+      setIsCutoutActive(false);
+    }
+  };
+
+  // Camera Capture
+  const takeWithCamera = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Camera Permission', 'Please allow camera access to take garment photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -99,40 +142,48 @@ export default function AddItemScreen() {
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Missing Name', 'Give your clothing item a name.');
+      showToast({ message: 'Give your clothing item a name', type: 'warning' });
       return;
     }
     if (!color.trim()) {
-      Alert.alert('Missing Color', 'What color is it?');
+      showToast({ message: 'Select or enter a color', type: 'warning' });
       return;
     }
 
     const finalImage = isCutoutActive && cutoutUri ? cutoutUri : originalUri;
 
-    addItem({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: name.trim(),
-      category,
-      color: color.trim(),
-      brand: brand.trim() || null,
-      location,
-      status,
-      imageUrl: finalImage,
-      isUniformWhiteTee: isUniform,
-      lastWornAt: null,
-      notes: notes.trim(),
-      createdAt: new Date().toISOString(),
-    });
+    if (editItem) {
+      updateItem(editItem.id, {
+        name: name.trim(),
+        category,
+        color: color.trim(),
+        brand: brand.trim() || null,
+        location,
+        status,
+        imageUrl: finalImage,
+        isUniformWhiteTee: isUniform,
+        notes: notes.trim(),
+      });
+      showToast({ message: `Updated ${name.trim()}`, type: 'success' });
+    } else {
+      addItem({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: name.trim(),
+        category,
+        color: color.trim(),
+        brand: brand.trim() || null,
+        location,
+        status,
+        imageUrl: finalImage,
+        isUniformWhiteTee: isUniform,
+        lastWornAt: null,
+        notes: notes.trim(),
+        createdAt: new Date().toISOString(),
+      });
+      showToast({ message: `Added ${name.trim()} to wardrobe`, type: 'success' });
+    }
 
-    Alert.alert('Item Added', `${name} has been added to your wardrobe.`);
-    setName('');
-    setColor('');
-    setBrand('');
-    setOriginalUri(null);
-    setCutoutUri(null);
-    setIsCutoutActive(false);
-    setNotes('');
-    setIsUniform(false);
+    navigation.goBack();
   };
 
   const activeImagePreview = isCutoutActive && cutoutUri ? cutoutUri : originalUri;
@@ -151,13 +202,22 @@ export default function AddItemScreen() {
             {/* Header */}
             <FadeSlideIn delay={0} fromY={-10}>
               <View style={styles.header}>
-                <Text style={styles.title}>Add Item</Text>
-                <Text style={styles.subtitle}>Capture a new clothing item</Text>
+                <View>
+                  <Text style={styles.title}>
+                    {editItem ? 'Edit Piece' : 'Add Item'}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    {editItem ? 'Update garment details' : 'Capture a new clothing item'}
+                  </Text>
+                </View>
+                <PressableScale onPress={() => navigation.goBack()} style={styles.closeBtn}>
+                  <X size={18} color={Colors.textTertiary} />
+                </PressableScale>
               </View>
             </FadeSlideIn>
 
             {/* Photo Picker & Non-AI Background Cutout Card */}
-            <FadeSlideIn delay={60} fromY={12}>
+            <FadeSlideIn delay={40} fromY={12}>
               <View style={styles.photoCard}>
                 <View style={styles.specular} />
 
@@ -195,13 +255,13 @@ export default function AddItemScreen() {
                                 <Sparkles size={14} color="#FFFFFF" strokeWidth={2.2} />
                               )}
                               <Text style={styles.removeBgText}>
-                                {cutoutUri ? 'Re-Cutout' : 'Remove Background (Non-AI)'}
+                                {cutoutUri ? 'Re-Cutout' : 'Remove Background'}
                               </Text>
                             </View>
                           )}
                         </PressableScale>
 
-                        <PressableScale onPress={pickImage} scaleTo={0.94}>
+                        <PressableScale onPress={pickFromGallery} scaleTo={0.94}>
                           <View style={styles.changePhotoBtn}>
                             <Text style={styles.changePhotoText}>Change</Text>
                           </View>
@@ -275,42 +335,91 @@ export default function AddItemScreen() {
                     </View>
                   </View>
                 ) : (
-                  <PressableScale scaleTo={0.97} onPress={pickImage}>
-                    <View style={styles.emptyPhotoPicker}>
-                      <View style={styles.cameraIconRing}>
-                        <Camera size={26} color={Colors.textPrimary} strokeWidth={1.8} />
-                      </View>
-                      <Text style={styles.photoLabel}>Tap to snap or upload photo</Text>
-                      <Text style={styles.photoSubLabel}>
-                        Auto non-AI edge background removal supported
-                      </Text>
+                  <View style={styles.emptyPhotoContainer}>
+                    <Text style={styles.photoLabel}>Add Garment Photo</Text>
+                    <Text style={styles.photoSubLabel}>
+                      Automatic clean edge cutout supported
+                    </Text>
+
+                    <View style={styles.photoChoiceRow}>
+                      <PressableScale
+                        scaleTo={0.95}
+                        onPress={takeWithCamera}
+                        style={styles.photoChoiceBtn}
+                      >
+                        <Camera size={20} color={Colors.textPrimary} />
+                        <Text style={styles.photoChoiceText}>Take Photo</Text>
+                      </PressableScale>
+
+                      <PressableScale
+                        scaleTo={0.95}
+                        onPress={pickFromGallery}
+                        style={styles.photoChoiceBtn}
+                      >
+                        <Sparkles size={20} color={Colors.textPrimary} />
+                        <Text style={styles.photoChoiceText}>Choose Gallery</Text>
+                      </PressableScale>
                     </View>
-                  </PressableScale>
+                  </View>
                 )}
               </View>
             </FadeSlideIn>
 
             {/* Name */}
-            <FadeSlideIn delay={100} fromY={12}>
+            <FadeSlideIn delay={80} fromY={12}>
               <Text style={styles.fieldLabel}>Name *</Text>
               <View style={styles.inputWrap}>
                 <TextInput
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
-                  placeholder='e.g. "White Uniqlo Tee #5"'
+                  placeholder='e.g. "White Uniqlo Airism Tee"'
                   placeholderTextColor={Colors.textTertiary}
                 />
               </View>
 
-              {/* Color */}
+              {/* Color Swatch Picker + Custom Input */}
               <Text style={styles.fieldLabel}>Color *</Text>
-              <View style={styles.inputWrap}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.colorSwatchRow}
+              >
+                {COLOR_SWATCHES.map((swatch) => {
+                  const isSelected = color.toLowerCase() === swatch.name.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={swatch.name}
+                      onPress={() => setColor(swatch.name)}
+                      style={[
+                        styles.colorSwatchBtn,
+                        isSelected && styles.colorSwatchBtnActive,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.colorSwatchCircle,
+                          { backgroundColor: swatch.hex, borderColor: swatch.border },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.colorSwatchName,
+                          isSelected && styles.colorSwatchNameActive,
+                        ]}
+                      >
+                        {swatch.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <View style={[styles.inputWrap, { marginTop: 8 }]}>
                 <TextInput
                   style={styles.input}
                   value={color}
                   onChangeText={setColor}
-                  placeholder='e.g. "White", "Navy", "Khaki"'
+                  placeholder="Or enter custom color name..."
                   placeholderTextColor={Colors.textTertiary}
                 />
               </View>
@@ -329,7 +438,7 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Category */}
-            <FadeSlideIn delay={140} fromY={12}>
+            <FadeSlideIn delay={120} fromY={12}>
               <Text style={styles.fieldLabel}>Category</Text>
               <View style={styles.chipRow}>
                 {CATEGORIES.map((cat) => {
@@ -358,7 +467,7 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Location */}
-            <FadeSlideIn delay={180} fromY={12}>
+            <FadeSlideIn delay={150} fromY={12}>
               <Text style={styles.fieldLabel}>Location</Text>
               <View style={styles.chipRow}>
                 {LOCATIONS.map((loc) => {
@@ -377,7 +486,7 @@ export default function AddItemScreen() {
                           strokeWidth={2}
                         />
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {LOC_SHORT[loc]}
+                          {loc === 'in_transit_bag' ? 'In Bag' : getLocationLabel(loc)}
                         </Text>
                       </View>
                     </PressableScale>
@@ -387,7 +496,7 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Status */}
-            <FadeSlideIn delay={220} fromY={12}>
+            <FadeSlideIn delay={180} fromY={12}>
               <Text style={styles.fieldLabel}>Status</Text>
               <View style={styles.chipRow}>
                 {STATUSES.map((st) => {
@@ -418,7 +527,7 @@ export default function AddItemScreen() {
                             styles.chipText,
                             active && {
                               color: STATUS_COLORS[st],
-                              fontWeight: '600',
+                              fontWeight: '700',
                             },
                           ]}
                         >
@@ -432,7 +541,7 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* School uniform toggle */}
-            <FadeSlideIn delay={260} fromY={12}>
+            <FadeSlideIn delay={210} fromY={12}>
               <PressableScale
                 scaleTo={0.97}
                 onPress={() => setIsUniform(!isUniform)}
@@ -441,7 +550,7 @@ export default function AddItemScreen() {
                   <View style={styles.toggleLeft}>
                     <Text style={styles.toggleTitle}>School Uniform Staple</Text>
                     <Text style={styles.toggleSub}>
-                      Tag as uniform white tee for fast daily outfit generator
+                      Tag for fast school uniform rotation in Fit Studio
                     </Text>
                   </View>
                   <View
@@ -462,14 +571,14 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Notes */}
-            <FadeSlideIn delay={280} fromY={12}>
+            <FadeSlideIn delay={240} fromY={12}>
               <Text style={styles.fieldLabel}>Notes</Text>
               <View style={[styles.inputWrap, styles.textAreaWrap]}>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="e.g. Airism, dry clean only, slightly loose fit"
+                  placeholder="e.g. Wash cold, loose fit, keeps me cool in Batangas heat"
                   placeholderTextColor={Colors.textTertiary}
                   multiline
                   numberOfLines={3}
@@ -478,10 +587,12 @@ export default function AddItemScreen() {
             </FadeSlideIn>
 
             {/* Save Button */}
-            <FadeSlideIn delay={300} fromY={14}>
+            <FadeSlideIn delay={270} fromY={14}>
               <PressableScale scaleTo={0.96} onPress={handleSave}>
                 <View style={styles.saveBtn}>
-                  <Text style={styles.saveBtnText}>Save to Wardrobe</Text>
+                  <Text style={styles.saveBtnText}>
+                    {editItem ? 'Save Changes' : 'Save to Wardrobe'}
+                  </Text>
                 </View>
               </PressableScale>
             </FadeSlideIn>
@@ -500,6 +611,9 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: Spacing.sm,
     marginBottom: Spacing.md,
   },
@@ -513,19 +627,29 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     fontSize: 13,
   },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
   photoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: Colors.borderGlass,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
   },
   specular: {
@@ -534,60 +658,75 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
   },
-  emptyPhotoPicker: {
-    paddingVertical: Spacing.xl,
+  emptyPhotoContainer: {
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F9F9FB',
-    borderRadius: Radii.lg,
+    backgroundColor: Colors.bgSubtle,
+    borderRadius: Radii.xl,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.08)',
+    borderColor: Colors.borderGlass,
     borderStyle: 'dashed',
+    gap: 6,
   },
-  cameraIconRing: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F2F2F7',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cameraIcon: { fontSize: 20 },
   photoLabel: {
     color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   photoSubLabel: {
     color: Colors.textTertiary,
-    fontSize: 11,
+    fontSize: 11.5,
+    marginBottom: 8,
+  },
+  photoChoiceRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  photoChoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+  },
+  photoChoiceText: {
+    color: Colors.textPrimary,
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   previewContainer: {
     alignItems: 'center',
     gap: Spacing.md,
   },
   imageFrame: {
-    width: 180,
-    height: 180,
+    width: 170,
+    height: 170,
     borderRadius: Radii.lg,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: Colors.bgSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: Colors.borderGlass,
   },
   cutoutFrame: {
-    backgroundColor: '#E5E5EA',
-    borderColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: Colors.bgDeep,
+    borderColor: Colors.borderGlassBright,
   },
   previewImage: {
-    width: 170,
-    height: 170,
+    width: 160,
+    height: 160,
   },
   cutoutActions: {
     width: '100%',
@@ -599,16 +738,11 @@ const styles = StyleSheet.create({
   },
   removeBgBtn: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: Colors.accent,
     borderRadius: Radii.pill,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   removeBgText: {
     color: '#FFFFFF',
@@ -621,7 +755,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+    borderColor: Colors.borderGlass,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -631,16 +765,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cutoutControls: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: Colors.bgSubtle,
     borderRadius: Radii.lg,
     padding: 10,
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: Colors.borderGlass,
   },
   viewToggleRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: 'rgba(20, 20, 19, 0.05)',
     borderRadius: Radii.pill,
     padding: 2,
   },
@@ -652,11 +786,10 @@ const styles = StyleSheet.create({
   },
   viewToggleBtnActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
-    elevation: 1,
   },
   viewToggleText: {
     color: Colors.textTertiary,
@@ -682,11 +815,11 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: Colors.borderGlass,
   },
   tolBtnActive: {
-    backgroundColor: '#1C1C1E',
-    borderColor: '#1C1C1E',
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
   tolText: {
     color: Colors.textTertiary,
@@ -705,23 +838,63 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
+  colorSwatchRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  colorSwatchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radii.pill,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  colorSwatchBtnActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.bgSubtle,
+  },
+  colorSwatchCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  colorSwatchName: {
+    fontSize: 11.5,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  colorSwatchNameActive: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
   inputWrap: {
     borderRadius: Radii.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
+    borderColor: Colors.borderGlass,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.02,
     shadowRadius: 3,
-    elevation: 1,
   },
   input: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: 12,
+    paddingVertical: 11,
     color: Colors.textPrimary,
     fontSize: 14,
+  },
+  textAreaWrap: {
+    minHeight: 80,
+  },
+  textArea: {
+    textAlignVertical: 'top',
   },
   chipRow: {
     flexDirection: 'row',
@@ -737,18 +910,12 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: Colors.borderGlass,
   },
   chipActive: {
-    backgroundColor: '#1C1C1E',
-    borderColor: '#1C1C1E',
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
-  chipIcon: { fontSize: 12 },
   chipText: {
     color: Colors.textTertiary,
     fontSize: 12,
@@ -772,16 +939,11 @@ const styles = StyleSheet.create({
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: Colors.borderGlass,
   },
   toggleRowActive: {
-    borderColor: 'rgba(10,132,255,0.3)',
-    backgroundColor: 'rgba(10,132,255,0.05)',
+    borderColor: 'rgba(29, 78, 216, 0.25)',
+    backgroundColor: Colors.locBatangasBg,
   },
   toggleLeft: { flex: 1 },
   toggleTitle: {
@@ -799,19 +961,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: Colors.bgDeep,
     padding: 2,
     justifyContent: 'center',
   },
   toggleIndicatorOn: {
-    backgroundColor: '#0A84FF',
+    backgroundColor: Colors.accent,
   },
   toggleThumb: {
     width: 22,
     height: 22,
     borderRadius: 11,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
@@ -819,24 +981,16 @@ const styles = StyleSheet.create({
   toggleThumbOn: {
     alignSelf: 'flex-end',
   },
-  textAreaWrap: {
-    minHeight: 70,
-  },
-  textArea: {
-    height: 70,
-    textAlignVertical: 'top',
-  },
   saveBtn: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: Radii.pill,
-    paddingVertical: 14,
+    backgroundColor: Colors.accent,
+    paddingVertical: 15,
+    borderRadius: Radii.xl,
     alignItems: 'center',
-    marginTop: Spacing.xl,
-    shadowColor: '#000',
+    marginTop: Spacing.lg,
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 6,
   },
   saveBtnText: {
     color: '#FFFFFF',

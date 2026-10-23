@@ -5,6 +5,7 @@ import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
 import { Colors, Radii, Spacing } from '../theme/theme';
 import { CategoryIcon, LocationIcon, Check } from './AppIcons';
+import { useWardrobe } from '../context/WardrobeContext';
 
 interface Props {
   item: ClothingItem;
@@ -47,6 +48,7 @@ export default function ClothingCard({
   onToggleSelect,
   delay = 0,
 }: Props) {
+  const { getLocationLabel } = useWardrobe();
   // Entrance animation
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
@@ -154,9 +156,36 @@ export default function ClothingCard({
 
           <View style={styles.footer}>
             <StatusBadge status={item.status} size="sm" />
-            <View style={styles.locBadge}>
-              <LocationIcon location={item.location} size={11} color={Colors.textTertiary} strokeWidth={2} />
-              <Text style={styles.location}>{LOCATION_LABELS[item.location]}</Text>
+            <View
+              style={[
+                styles.locBadge,
+                item.location === 'batangas_dorm' && { backgroundColor: Colors.locBatangasBg, borderColor: 'rgba(29, 78, 216, 0.2)' },
+                item.location === 'calamba_home' && { backgroundColor: Colors.locCalambaBg, borderColor: 'rgba(180, 83, 9, 0.2)' },
+                item.location === 'in_transit_bag' && { backgroundColor: Colors.locInTransitBg, borderColor: 'rgba(77, 107, 83, 0.2)' },
+              ]}
+            >
+              <LocationIcon
+                location={item.location}
+                size={11}
+                color={
+                  item.location === 'batangas_dorm'
+                    ? Colors.locBatangas
+                    : item.location === 'calamba_home'
+                    ? Colors.locCalamba
+                    : Colors.locInTransit
+                }
+                strokeWidth={2}
+              />
+              <Text
+                style={[
+                  styles.location,
+                  item.location === 'batangas_dorm' && { color: Colors.locBatangas },
+                  item.location === 'calamba_home' && { color: Colors.locCalamba },
+                  item.location === 'in_transit_bag' && { color: Colors.locInTransit },
+                ]}
+              >
+                {getLocationLabel(item.location)}
+              </Text>
             </View>
           </View>
         </View>
@@ -173,18 +202,18 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: Colors.borderGlass,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
   },
   selectedCard: {
     backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(0, 0, 0, 0.20)',
+    borderColor: Colors.accent,
     borderWidth: 1.5,
   },
   specular: {
@@ -200,16 +229,16 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: Radii.lg,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: Colors.bgSubtle,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.06)',
+    borderColor: Colors.borderGlass,
     marginRight: 14,
     marginLeft: 0,
     position: 'relative',
     overflow: 'visible',
   },
   thumbSelected: {
-    borderColor: 'rgba(0, 0, 0, 0.20)',
+    borderColor: Colors.accent,
   },
   thumbInner: {
     width: 68,
@@ -218,7 +247,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: Colors.bgSubtle,
   },
   thumbImg: {
     width: 68,
@@ -275,18 +304,18 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   uniformBadge: {
-    backgroundColor: 'rgba(10,132,255,0.15)',
+    backgroundColor: Colors.locBatangasBg,
     borderRadius: 4,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: 'rgba(10,132,255,0.35)',
+    borderColor: 'rgba(29, 78, 216, 0.22)',
   },
   uniformText: {
-    color: '#0A84FF',
+    color: Colors.locBatangas,
     fontSize: 8,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   brand: {
     color: Colors.textSecondary,
@@ -303,10 +332,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   location: {
     color: Colors.textTertiary,
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10.5,
+    fontWeight: '600',
   },
 });

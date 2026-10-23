@@ -11,8 +11,8 @@ interface Props {
 
 export default function StatusBadge({ status, size = 'md' }: Props) {
   const color = STATUS_COLORS[status];
-  const bg = color + '20'; // 12% opacity tint
-  const border = color + '50'; // 31% opacity border
+  const bg = color + '14'; // Subtle 8% tint
+  const border = color + '30'; // Delicate 19% micro-border
   const isSm = size === 'sm';
 
   return (
@@ -22,7 +22,7 @@ export default function StatusBadge({ status, size = 'md' }: Props) {
         {
           backgroundColor: bg,
           borderColor: border,
-          paddingHorizontal: isSm ? 7 : 10,
+          paddingHorizontal: isSm ? 8 : 10,
           paddingVertical: isSm ? 3 : 5,
         },
       ]}

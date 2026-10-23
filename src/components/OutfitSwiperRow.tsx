@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import {
   View,
+  Text,
   Image,
   StyleSheet,
   FlatList,
@@ -9,7 +10,8 @@ import {
   useWindowDimensions,
   LayoutChangeEvent,
 } from 'react-native';
-import { ClothingItem } from '../types/wardrobe';
+import { ClothingItem, STATUS_COLORS, STATUS_LABELS } from '../types/wardrobe';
+import { Colors, Radii } from '../theme/theme';
 import { CategoryIcon, PushPin } from './AppIcons';
 import PressableScale from './PressableScale';
 
@@ -85,6 +87,29 @@ export default function OutfitSwiperRow({
       onLayout={handleLayout}
       style={[styles.rowContainer, { height: rowHeight }]}
     >
+      {/* 1. Architectural styling stage pedestal behind the active center garment */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.activeStageFrame,
+          {
+            left: SPACER_PADDING + 4,
+            width: ITEM_WIDTH - 8,
+            height: rowHeight - 6,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.stageInner,
+            isLocked && styles.stageInnerLocked,
+          ]}
+        >
+          <View style={styles.stageSpecular} />
+        </View>
+      </View>
+
+      {/* 2. Garment carousel */}
       <FlatList
         ref={listRef}
         data={items}
@@ -128,7 +153,8 @@ export default function OutfitSwiperRow({
                   maxWidth: ITEM_WIDTH,
                   flexShrink: 0,
                   height: rowHeight,
-                  opacity: isCentered ? 1 : 0.45,
+                  opacity: isCentered ? 1 : 0.42,
+                  transform: [{ scale: isCentered ? 1 : 0.94 }],
                 },
               ]}
             >
@@ -154,7 +180,7 @@ export default function OutfitSwiperRow({
         }}
       />
 
-      {/* Floating Pushpin Lock button pinned to the active centered garment */}
+      {/* 3. Floating overlay: Location/Status Chip (Left) & Pin Lock (Right) */}
       <View
         pointerEvents="box-none"
         style={[
@@ -166,20 +192,57 @@ export default function OutfitSwiperRow({
           },
         ]}
       >
-        <PressableScale
-          onPress={onToggleLock}
-          scaleTo={0.88}
-          style={[
-            styles.pinButton,
-            isLocked && styles.pinButtonLocked,
-          ]}
-        >
-          <PushPin
-            size={18}
-            color={isLocked ? '#7C3AED' : '#8E8E93'}
-            weight={isLocked ? 'bold' : 'regular'}
-          />
-        </PressableScale>
+        <View style={styles.overlayTopBar}>
+          {/* Subtle Location & Status indicator */}
+          <View style={styles.garmentMetaPill}>
+            <View
+              style={[
+                styles.metaDot,
+                {
+                  backgroundColor:
+                    activeItem.location === 'batangas_dorm'
+                      ? Colors.locBatangas
+                      : activeItem.location === 'calamba_home'
+                      ? Colors.locCalamba
+                      : Colors.locInTransit,
+                },
+              ]}
+            />
+            <Text style={styles.metaLocText}>
+              {activeItem.location === 'batangas_dorm'
+                ? 'Dorm'
+                : activeItem.location === 'calamba_home'
+                ? 'Home'
+                : 'Bag'}
+            </Text>
+            {activeItem.status !== 'clean' && (
+              <Text
+                style={[
+                  styles.metaStatusText,
+                  { color: STATUS_COLORS[activeItem.status] ?? Colors.textTertiary },
+                ]}
+              >
+                • {STATUS_LABELS[activeItem.status]}
+              </Text>
+            )}
+          </View>
+
+          {/* Floating Pushpin Lock button */}
+          <PressableScale
+            onPress={onToggleLock}
+            scaleTo={0.88}
+            style={[
+              styles.pinButton,
+              isLocked && styles.pinButtonLocked,
+            ]}
+          >
+            <PushPin
+              size={15}
+              color={isLocked ? '#7C3AED' : '#8E8E93'}
+              weight={isLocked ? 'bold' : 'regular'}
+            />
+          </PressableScale>
+        </View>
       </View>
     </View>
   );
@@ -191,7 +254,39 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 2,
+  },
+  activeStageFrame: {
+    position: 'absolute',
+    top: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stageInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: Radii.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(20, 20, 19, 0.06)',
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+    overflow: 'hidden',
+  },
+  stageInnerLocked: {
+    backgroundColor: 'rgba(250, 245, 255, 0.85)',
+    borderColor: 'rgba(124, 58, 237, 0.25)',
+  },
+  stageSpecular: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   emptyContainer: {
     width: '100%',
@@ -221,24 +316,55 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     justifyContent: 'flex-start',
-    alignItems: 'flex-end',
+    alignItems: 'stretch',
     paddingTop: 8,
-    paddingRight: 10,
+    paddingHorizontal: 8,
+  },
+  overlayTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  garmentMetaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 20, 19, 0.06)',
+  },
+  metaDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  metaLocText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  metaStatusText: {
+    fontSize: 9.5,
+    fontWeight: '600',
   },
   pinButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: 'rgba(20, 20, 19, 0.06)',
   },
   pinButtonLocked: {
     backgroundColor: '#EDE9FE',

@@ -53,6 +53,18 @@ export interface ClothingItem {
 
 // ─── Display helpers ─────────────────────────────────────────────────
 
+export interface LocationNames {
+  batangas_dorm: string;
+  calamba_home: string;
+  in_transit_bag: string;
+}
+
+export const DEFAULT_LOCATION_NAMES: LocationNames = {
+  batangas_dorm: 'Batangas Dorm',
+  calamba_home: 'Calamba Home',
+  in_transit_bag: 'In-Transit Bag',
+};
+
 export const LOCATION_LABELS: Record<Location, string> = {
   calamba_home: 'Calamba Home',
   batangas_dorm: 'Batangas Dorm',
@@ -68,11 +80,11 @@ export const STATUS_LABELS: Record<Status, string> = {
 };
 
 export const STATUS_COLORS: Record<Status, string> = {
-  clean: '#34D399',
-  worn: '#FBBF24',
-  in_laundry: '#FB923C',
-  drying: '#60A5FA',
-  misplaced: '#F87171',
+  clean: '#16A34A',
+  worn: '#D97706',
+  in_laundry: '#EA580C',
+  drying: '#2563EB',
+  misplaced: '#DC2626',
 };
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -92,3 +104,48 @@ export const CATEGORY_ICONS: Record<Category, string> = {
   outerwear: 'outerwear',
   accessories: 'accessories',
 };
+
+/**
+ * A curated outfit saved to the user's permanent Lookbook.
+ */
+export interface SavedOutfit {
+  id: string;
+  name: string;
+  topId: string;
+  bottomId: string;
+  shoesId?: string | null;
+  accessoriesId?: string | null;
+  tags: string[];
+  createdAt: string;
+  lastWornAt?: string | null;
+}
+
+/**
+ * Historical record of an outfit worn on a specific date.
+ */
+export interface WearLogEntry {
+  id: string;
+  outfitName?: string;
+  itemIds: string[];
+  wornAt: string;
+  location: Location;
+}
+
+/**
+ * Curated color palette swatches for fast item creation & tagging.
+ */
+export const COLOR_SWATCHES = [
+  { name: 'White', hex: '#FFFFFF', border: '#D1D5DB' },
+  { name: 'Black', hex: '#1C1C1E', border: '#1C1C1E' },
+  { name: 'Navy', hex: '#1B2A4A', border: '#1B2A4A' },
+  { name: 'Gray', hex: '#8E8E93', border: '#8E8E93' },
+  { name: 'Khaki', hex: '#C3B091', border: '#C3B091' },
+  { name: 'Olive', hex: '#6B7C45', border: '#6B7C45' },
+  { name: 'Beige', hex: '#E6D7C3', border: '#D4C4A8' },
+  { name: 'Brown', hex: '#8B5E3C', border: '#8B5E3C' },
+  { name: 'Blue', hex: '#3478F6', border: '#3478F6' },
+  { name: 'Green', hex: '#30D158', border: '#30D158' },
+  { name: 'Red', hex: '#FF3B30', border: '#FF3B30' },
+  { name: 'Yellow', hex: '#FFD60A', border: '#FFD60A' },
+] as const;
+

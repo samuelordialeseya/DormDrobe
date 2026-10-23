@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Smartphone, Monitor } from './AppIcons';
+import { Colors } from '../theme/theme';
 
 interface Props {
   children: React.ReactNode;
@@ -141,11 +142,11 @@ export default function DeviceFrame({ children }: Props) {
 const styles = StyleSheet.create({
   nativeContainer: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: Colors.bgBase,
   },
   desktopCanvas: {
     flex: 1,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: Colors.bgDeep,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
@@ -160,8 +161,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
-    shadowColor: '#000',
+    borderColor: 'rgba(20,20,19,0.08)',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -176,22 +177,22 @@ const styles = StyleSheet.create({
   },
   switchBtnActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
   },
   switchText: {
-    color: '#8E8E93',
+    color: Colors.textTertiary,
     fontSize: 12,
     fontWeight: '600',
   },
   switchTextActive: {
-    color: '#1C1C1E',
+    color: Colors.textPrimary,
   },
   frameWrapper: {
     position: 'relative',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: Colors.bgBase,
   },
   fullscreenFrame: {
     width: '100%',

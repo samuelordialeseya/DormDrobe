@@ -21,8 +21,8 @@ type TabDef = {
 const TABS: TabDef[] = [
   { name: 'Home', Icon: Home, label: 'Home' },
   { name: 'Closet', Icon: Shirt, label: 'Closet' },
-  { name: 'Batch', Icon: Luggage, label: 'Actions' },
-  { name: 'FitGen', Icon: Sparkles, label: 'Fit Gen' },
+  { name: 'Batch', Icon: Luggage, label: 'Pack & Wash' },
+  { name: 'FitGen', Icon: Sparkles, label: 'Outfits' },
   { name: 'Settings', Icon: Settings, label: 'Settings' },
 ];
 
@@ -199,12 +199,12 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.94)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
+    borderColor: 'rgba(20, 20, 19, 0.08)',
     paddingHorizontal: BAR_PAD,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 24,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 28,
     elevation: 12,
   },
   activePill: {
@@ -213,9 +213,9 @@ const styles = StyleSheet.create({
     left: 0,
     height: PILL_H,
     borderRadius: PILL_H / 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: 'rgba(20, 20, 19, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)',
+    borderColor: 'rgba(20, 20, 19, 0.05)',
     overflow: 'hidden',
   },
   tabItem: {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
   tabLabelActive: {
     color: Colors.textPrimary,

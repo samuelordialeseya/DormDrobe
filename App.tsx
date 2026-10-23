@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import { WardrobeProvider } from './src/context/WardrobeContext';
 import TabNavigator from './src/navigation/TabNavigator';
 import DeviceFrame from './src/components/DeviceFrame';
 import { Colors } from './src/theme/theme';
+import { requestPersistentStorage } from './src/utils/storage';
 
 // Override nav theme background to match our Apple Frost light design
 const AppTheme = {
@@ -21,6 +22,11 @@ const AppTheme = {
 };
 
 export default function App() {
+  useEffect(() => {
+    // Automatically ask Safari (iOS) and Chromium (Android) to mark storage as persistent
+    requestPersistentStorage();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <WardrobeProvider>

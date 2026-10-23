@@ -8,18 +8,19 @@ Never wonder *"Did I leave that hoodie at home or in my dorm?"* again.
 
 ## ✨ Features
 
-- **🏠 Multi-Location Wardrobe Tracking**: Instantly see what clothes are currently at your **Dorm**, at **Home**, or **In Transit**.
-- **🧺 Status & Laundry Tracking**: Keep tabs on what's **Clean**, **Dirty**, or currently at the **Laundromat**.
-- **🧳 Luggage & Batch Move**: Pack for weekend trips or semester move-in/move-out with 1-tap batch transfer tools.
-- **✨ Fit Generator**: Roll the dice to generate stylish outfits using clean clothes available at your current location.
-- **📸 Visual Wardrobe Catalog**: Snap photos of your clothes, tag colors, categories, brands, and personal notes.
-- **⚡ Offline-First with Cloud Sync**: Fully functional offline via `@react-native-async-storage/async-storage`, with optional cloud database synchronization using **Supabase**.
+- **🏠 Multi-Location Wardrobe Tracking**: Instantly see what clothes are currently at your **Batangas Dorm**, at **Calamba Home**, or **In-Transit Bag**, with synced global user location.
+- **📱 Interactive Garment Sheet**: Tap any piece in your closet to open a spring-driven bottom sheet with 1-tap status cycling (`Clean`, `Worn`, `In Laundry`, `Drying`, `Misplaced`), 1-tap location transfer, wear history, inline notes, and edit/delete.
+- **🧺 Full Laundry Triage**: Seamless botanical lifecycle (`Worn → Laundry → Drying → Clean`) with optimistic state updates and Sonner-style instant **Undo** toasts.
+- **🧳 Commuter Luggage & Smart Packing**: 1-Tap **"Unpack Transit Bag"** arrival banner, pack clean clothes or dirty laundry to bring home for weekend wash, plus a **3-Day Weekend Packing Formula** shortcut.
+- **✨ Fit Studio & Live Lookbook**: Roll the kinetic dice in the multi-row outfit mixer, record **"Wear Today"** rotation logs, and bookmark curated outfits to your **Lookbook** with real-time piece availability badges (*"Ready at Dorm"* vs *"Piece in Laundry"*).
+- **📸 Visual Wardrobe Catalog**: Camera capture and gallery upload with automatic non-AI background removal and tactile color swatch selectors.
+- **⚡ Offline-First with Cloud Sync**: Fully functional offline via `@react-native-async-storage/async-storage`, with optional cloud database synchronization using **Supabase** (`clothing_items`, `saved_outfits`, `wear_history`).
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/) (SDK 57)
+- **Framework**: [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/) (SDK 58)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Navigation**: [React Navigation](https://reactnavigation.org/) (Bottom Tabs & Native Stack)
 - **Local Storage**: AsyncStorage

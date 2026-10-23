@@ -321,6 +321,105 @@ export const Layers = (p: AppIconProps) => <CoatHanger size={p.size ?? 20} color
 export const Pin = (p: AppIconProps) => <PushPin size={p.size ?? 18} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
 export const Dice = (p: AppIconProps) => <DiceFive size={p.size ?? 20} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'bold'} style={p.style} />;
 
+export function CaretDown({ size = 16, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function CaretUp({ size = 16, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function MenuSandwich({ size = 18, color = '#1C1C1E', strokeWidth = 2.2, style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path d="M4 6.5h16M4 12h16M4 17.5h16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function FilterFunnel({ size = 18, color = '#1C1C1E', strokeWidth = 2, style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path d="M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function AlertTriangle({ size = 20, color = '#D97706', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M12 2L1 21h22L12 2zm0 3.5L20.2 19H3.8L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function Info({ size = 20, color = '#3B82F6', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function Trash2({ size = 18, color = '#DC2626', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function Edit3({ size = 18, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function Clock({ size = 16, color = '#8E8E93', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function Bookmark({ size = 18, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+
 export function LayoutRowsIcon({
   rows,
   active = false,
@@ -362,4 +461,51 @@ export function LayoutRowsIcon({
     </Svg>
   );
 }
+
+
+export function DownloadSimple({ size = 20, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function UploadSimple({ size = 20, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path
+        d="M12 16V3m0 0L8 7m4-4l4 4M4 20h16"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function HardDrive({ size = 20, color = '#1C1C1E', style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Line x1="22" y1="12" x2="2" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line x1="6" y1="16" x2="6.01" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="10" y1="16" x2="10.01" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 

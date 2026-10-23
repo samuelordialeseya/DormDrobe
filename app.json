@@ -19,7 +19,17 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "name": "DormDrobe",
+      "shortName": "DormDrobe",
+      "lang": "en",
+      "display": "standalone",
+      "orientation": "portrait",
+      "backgroundColor": "#F6F5F0",
+      "themeColor": "#141413"
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
   }
 }

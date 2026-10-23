@@ -12,13 +12,24 @@ import {
   Location,
   Status,
   Category,
+  SavedOutfit,
+  WearLogEntry,
+  LOCATION_LABELS,
+  LocationNames,
+  DEFAULT_LOCATION_NAMES,
 } from '../types/wardrobe';
 import { MOCK_CLOTHING } from '../utils/mockData';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
 import { AppStorage } from '../utils/storage';
+import SonnerToast, { ToastConfig } from '../components/SonnerToast';
 
-// ─── Storage key ─────────────────────────────────────────────────────
+// ─── Storage keys ────────────────────────────────────────────────────
 const STORAGE_KEY = '@dormdrobe/clothing';
+const LOCATION_KEY = '@dormdrobe/current_location';
+const LOCATION_NAMES_KEY = '@dormdrobe/location_names';
+const OUTFITS_KEY = '@dormdrobe/saved_outfits';
+const WEAR_LOGS_KEY = '@dormdrobe/wear_history';
+
 
 // ─── Supabase Snake <-> Camel mapping helpers ────────────────────────
 function toDbItem(it: ClothingItem) {
@@ -59,19 +70,33 @@ function fromDbItem(db: any): ClothingItem {
 interface WardrobeState {
   /** All clothing items (the single source of truth) */
   items: ClothingItem[];
+  /** Synced user active location ("I'm currently at Dorm" vs "at Home") */
+  currentLocation: Location;
   /** Currently selected location filter (null = All) */
   locationFilter: Location | null;
   /** Currently selected status filter (null = All) */
   statusFilter: Status | null;
   /** Current search query */
   searchQuery: string;
+  /** Whether to filter to only school uniform pieces */
+  uniformFilter: boolean;
   /** Whether the initial load is still happening */
   loading: boolean;
+  /** Saved lookbook outfits */
+  savedOutfits: SavedOutfit[];
+  /** Historical wear logs */
+  wearHistory: WearLogEntry[];
+  /** User-customizable nicknames for Dorm, Home, and Bag */
+  locationNames: LocationNames;
 
   // ── Actions ──────────────────────────────────────────────────────
+  setCurrentLocation: (loc: Location) => void;
   setLocationFilter: (loc: Location | null) => void;
   setStatusFilter: (st: Status | null) => void;
   setSearchQuery: (q: string) => void;
+  setUniformFilter: (val: boolean) => void;
+  updateLocationNames: (names: Partial<LocationNames>) => void;
+  getLocationLabel: (loc: Location) => string;
   addItem: (item: ClothingItem) => void;
   updateItem: (id: string, patch: Partial<ClothingItem>) => void;
   deleteItem: (id: string) => void;
@@ -82,6 +107,20 @@ interface WardrobeState {
     filter: { location?: Location; status?: Status },
     newStatus: Status,
   ) => void;
+  /** 1-Tap Unpack Bag: moves all items in 'in_transit_bag' to target location */
+  unpackTransitBag: (toLocation: Location) => void;
+  /** Lookbook: save an outfit combination */
+  addSavedOutfit: (outfit: SavedOutfit) => void;
+  /** Lookbook: remove an outfit */
+  deleteSavedOutfit: (id: string) => void;
+  /** Outfit History: log that an outfit was worn today */
+  logOutfitWorn: (itemIds: string[], outfitName?: string) => void;
+  /** Sonner Toast: display a non-blocking toast with optional Undo action */
+  showToast: (config: Omit<ToastConfig, 'id'>) => void;
+  /** Export all wardrobe data, lookbooks, and logs as a formatted JSON string */
+  exportBackup: () => Promise<string>;
+  /** Restore all wardrobe data from a JSON backup string */
+  restoreBackup: (jsonString: string) => Promise<{ success: boolean; count: number; error?: string }>;
   /** Computed: filtered items based on current filters & search */
   filteredItems: ClothingItem[];
   /** Computed: count of items matching a query */
@@ -97,10 +136,28 @@ const WardrobeContext = createContext<WardrobeState | null>(null);
 // ─── Provider ────────────────────────────────────────────────────────
 export function WardrobeProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ClothingItem[]>([]);
+  const [currentLocation, setCurrentLocationState] = useState<Location>('batangas_dorm');
+  const [locationNames, setLocationNames] = useState<LocationNames>(DEFAULT_LOCATION_NAMES);
   const [locationFilter, setLocationFilter] = useState<Location | null>(null);
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+  const [uniformFilter, setUniformFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>([]);
+  const [wearHistory, setWearHistory] = useState<WearLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<ToastConfig | null>(null);
+
+  // ── Toast helper ───────────────────────────────────────────────────
+  const showToast = useCallback((config: Omit<ToastConfig, 'id'>) => {
+    setToast({
+      ...config,
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    });
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    setToast(null);
+  }, []);
 
   // ── Persist helpers ────────────────────────────────────────────────
   const persist = useCallback(async (next: ClothingItem[]) => {
@@ -111,10 +168,95 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const persistOutfits = useCallback(async (next: SavedOutfit[]) => {
+    try {
+      await AppStorage.setItem(OUTFITS_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('[DormDrobe] Failed to persist outfits', e);
+    }
+  }, []);
+
+  const persistWearHistory = useCallback(async (next: WearLogEntry[]) => {
+    try {
+      await AppStorage.setItem(WEAR_LOGS_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('[DormDrobe] Failed to persist wear history', e);
+    }
+  }, []);
+
+  const setCurrentLocation = useCallback(async (loc: Location) => {
+    setCurrentLocationState(loc);
+    try {
+      await AppStorage.setItem(LOCATION_KEY, loc);
+    } catch (e) {
+      console.warn('[DormDrobe] Failed to persist current location', e);
+    }
+  }, []);
+
   // ── Load from Supabase (or fallback to AsyncStorage / mock) ───────
   useEffect(() => {
     (async () => {
       try {
+        // Load active location
+        const storedLoc = await AppStorage.getItem(LOCATION_KEY);
+        if (storedLoc === 'batangas_dorm' || storedLoc === 'calamba_home') {
+          setCurrentLocationState(storedLoc);
+        }
+
+        // Load custom location names
+        const storedNames = await AppStorage.getItem(LOCATION_NAMES_KEY);
+        if (storedNames) {
+          try {
+            setLocationNames({ ...DEFAULT_LOCATION_NAMES, ...JSON.parse(storedNames) });
+          } catch {}
+        }
+
+        // Load saved outfits
+        const storedOutfits = await AppStorage.getItem(OUTFITS_KEY);
+        if (storedOutfits) {
+          try {
+            setSavedOutfits(JSON.parse(storedOutfits));
+          } catch {
+            setSavedOutfits([]);
+          }
+        } else {
+          // Initial seed outfit if none exists
+          const initialOutfits: SavedOutfit[] = [
+            {
+              id: 'outfit-seed-1',
+              name: 'Monday White Tee Uniform',
+              topId: 'mock-1',
+              bottomId: 'mock-4',
+              shoesId: 'mock-6',
+              tags: ['uniform', 'campus'],
+              createdAt: new Date().toISOString(),
+              lastWornAt: null,
+            },
+            {
+              id: 'outfit-seed-2',
+              name: 'Friday Commute Casual',
+              topId: 'mock-2',
+              bottomId: 'mock-5',
+              shoesId: 'mock-6',
+              tags: ['commute', 'weekend'],
+              createdAt: new Date().toISOString(),
+              lastWornAt: null,
+            },
+          ];
+          setSavedOutfits(initialOutfits);
+          persistOutfits(initialOutfits);
+        }
+
+        // Load wear history
+        const storedWearLogs = await AppStorage.getItem(WEAR_LOGS_KEY);
+        if (storedWearLogs) {
+          try {
+            setWearHistory(JSON.parse(storedWearLogs));
+          } catch {
+            setWearHistory([]);
+          }
+        }
+
         if (isSupabaseConfigured) {
           const { data, error } = await supabase
             .from('clothing_items')
@@ -134,6 +276,20 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
               }
               return item;
             });
+
+            // Auto-merge any newly added seed items from MOCK_CLOTHING
+            const existingDbIds = new Set(enriched.map((i) => i.id));
+            const existingDbNames = new Set(enriched.map((i) => i.name.toLowerCase()));
+            const missingFromDb = MOCK_CLOTHING.filter(
+              (m) => !existingDbIds.has(m.id) && !existingDbNames.has(m.name.toLowerCase())
+            );
+            if (missingFromDb.length > 0) {
+              enriched.push(...missingFromDb);
+              supabase
+                .from('clothing_items')
+                .insert(missingFromDb.map(toDbItem))
+                .then(() => console.log('[DormDrobe] Inserted new seed items to Supabase'));
+            }
 
             setItems(enriched);
             await persist(enriched);
@@ -170,6 +326,17 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             return item;
           });
 
+          // Auto-merge any newly added seed items from MOCK_CLOTHING
+          const existingIds = new Set(updated.map((i) => i.id));
+          const existingNames = new Set(updated.map((i) => i.name.toLowerCase()));
+          const missingMockItems = MOCK_CLOTHING.filter(
+            (m) => !existingIds.has(m.id) && !existingNames.has(m.name.toLowerCase())
+          );
+          if (missingMockItems.length > 0) {
+            hasBackfill = true;
+            updated.push(...missingMockItems);
+          }
+
           setItems(updated);
           if (hasBackfill) {
             await persist(updated);
@@ -193,7 +360,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     })();
-  }, [persist]);
+  }, [persist, persistOutfits]);
 
   // ── CRUD ──────────────────────────────────────────────────────────
   const addItem = useCallback(
@@ -259,6 +426,17 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         return next;
       });
 
+      // Safely update saved outfits referencing this item
+      setSavedOutfits((prev) => {
+        const next = prev.map((o) => {
+          if (o.shoesId === id) return { ...o, shoesId: null };
+          if (o.accessoriesId === id) return { ...o, accessoriesId: null };
+          return o;
+        });
+        persistOutfits(next);
+        return next;
+      });
+
       if (isSupabaseConfigured) {
         supabase
           .from('clothing_items')
@@ -269,7 +447,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
           });
       }
     },
-    [persist],
+    [persist, persistOutfits],
   );
 
   // ── Batch ops ─────────────────────────────────────────────────────
@@ -324,6 +502,178 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const updateLocationNames = useCallback(async (patch: Partial<LocationNames>) => {
+    setLocationNames((prev) => {
+      const next = { ...prev, ...patch };
+      AppStorage.setItem(LOCATION_NAMES_KEY, JSON.stringify(next)).catch((e) => {
+        console.warn('[DormDrobe] Failed to persist location names', e);
+      });
+      return next;
+    });
+  }, []);
+
+  const getLocationLabel = useCallback(
+    (loc: Location): string => {
+      return locationNames[loc] || LOCATION_LABELS[loc] || loc;
+    },
+    [locationNames],
+  );
+
+  // ── 1-Tap Unpack Transit Bag ───────────────────────────────────────
+  const unpackTransitBag = useCallback(
+    (toLocation: Location) => {
+      const bagItems = items.filter((it) => it.location === 'in_transit_bag');
+      if (bagItems.length === 0) return;
+
+      const previousItems = [...items];
+      const count = bagItems.length;
+      const cleanCount = bagItems.filter((i) => i.status === 'clean').length;
+      const needsWashCount = bagItems.filter((i) => i.status !== 'clean').length;
+      const breakdown =
+        cleanCount > 0 && needsWashCount > 0
+          ? ` (${cleanCount} clean, ${needsWashCount} to wash)`
+          : '';
+
+      setItems((prev) => {
+        const next = prev.map((it) =>
+          it.location === 'in_transit_bag' ? { ...it, location: toLocation } : it,
+        );
+        persist(next);
+        return next;
+      });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .update({ location: toLocation })
+          .eq('location', 'in_transit_bag')
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase unpack error:', error.message);
+          });
+      }
+
+      showToast({
+        message: `Unpacked ${count} item${count > 1 ? 's' : ''} to ${getLocationLabel(toLocation)}${breakdown}`,
+        type: 'success',
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            setItems(previousItems);
+            persist(previousItems);
+            if (isSupabaseConfigured) {
+              supabase
+                .from('clothing_items')
+                .update({ location: 'in_transit_bag' })
+                .in('id', bagItems.map((b) => b.id))
+                .then(() => {});
+            }
+          },
+        },
+      });
+    },
+    [items, persist, showToast, getLocationLabel],
+  );
+
+  // ── Lookbook & Wear History ─────────────────────────────────────────
+  const addSavedOutfit = useCallback(
+    (outfit: SavedOutfit) => {
+      setSavedOutfits((prev) => {
+        const next = [outfit, ...prev.filter((o) => o.id !== outfit.id)];
+        persistOutfits(next);
+        return next;
+      });
+      showToast({
+        message: `Saved "${outfit.name}" to Lookbook`,
+        type: 'success',
+      });
+    },
+    [persistOutfits, showToast],
+  );
+
+  const deleteSavedOutfit = useCallback(
+    (id: string) => {
+      const prevOutfits = [...savedOutfits];
+      const target = savedOutfits.find((o) => o.id === id);
+      setSavedOutfits((prev) => {
+        const next = prev.filter((o) => o.id !== id);
+        persistOutfits(next);
+        return next;
+      });
+      showToast({
+        message: `Removed "${target?.name ?? 'outfit'}" from Lookbook`,
+        type: 'info',
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            setSavedOutfits(prevOutfits);
+            persistOutfits(prevOutfits);
+          },
+        },
+      });
+    },
+    [savedOutfits, persistOutfits, showToast],
+  );
+
+  const logOutfitWorn = useCallback(
+    (itemIds: string[], outfitName?: string) => {
+      const nowIso = new Date().toISOString();
+      const previousItems = [...items];
+
+      // Update garment lastWornAt and mark as worn
+      setItems((prev) => {
+        const idSet = new Set(itemIds);
+        const next = prev.map((it) =>
+          idSet.has(it.id)
+            ? { ...it, status: 'worn' as Status, lastWornAt: nowIso }
+            : it,
+        );
+        persist(next);
+        return next;
+      });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .update({ status: 'worn', last_worn_at: nowIso })
+          .in('id', itemIds)
+          .then(() => {});
+      }
+
+      // Add wear log entry
+      const logEntry: WearLogEntry = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        outfitName,
+        itemIds,
+        wornAt: nowIso,
+        location: currentLocation,
+      };
+
+      setWearHistory((prev) => {
+        const next = [logEntry, ...prev];
+        persistWearHistory(next);
+        return next;
+      });
+
+      showToast({
+        message: outfitName ? `Logged "${outfitName}" as worn` : 'Logged outfit as worn today',
+        type: 'success',
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            setItems(previousItems);
+            persist(previousItems);
+            setWearHistory((prev) => {
+              const reverted = prev.filter((l) => l.id !== logEntry.id);
+              persistWearHistory(reverted);
+              return reverted;
+            });
+          },
+        },
+      });
+    },
+    [items, currentLocation, persist, persistWearHistory, showToast],
+  );
+
   // ── Computed ──────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
     let result = items;
@@ -332,6 +682,9 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     }
     if (statusFilter) {
       result = result.filter((it) => it.status === statusFilter);
+    }
+    if (uniformFilter) {
+      result = result.filter((it) => it.isUniformWhiteTee);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -344,7 +697,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       );
     }
     return result;
-  }, [items, locationFilter, statusFilter, searchQuery]);
+  }, [items, locationFilter, statusFilter, uniformFilter, searchQuery]);
 
   const countItems = useCallback(
     (filter: { location?: Location; status?: Status; category?: Category }) => {
@@ -358,35 +711,137 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     [items],
   );
 
+  // ── Backup & Restore (Local-First Tarsi Architecture) ───────────────
+  const exportBackup = useCallback(async (): Promise<string> => {
+    const backupData = {
+      app: 'DormDrobe',
+      version: '1.0.0',
+      exportedAt: new Date().toISOString(),
+      currentLocation,
+      locationNames,
+      items,
+      savedOutfits,
+      wearHistory,
+    };
+    return JSON.stringify(backupData, null, 2);
+  }, [currentLocation, locationNames, items, savedOutfits, wearHistory]);
+
+  const restoreBackup = useCallback(
+    async (jsonString: string): Promise<{ success: boolean; count: number; error?: string }> => {
+      try {
+        const data = JSON.parse(jsonString);
+        if (!data || !Array.isArray(data.items)) {
+          return {
+            success: false,
+            count: 0,
+            error: 'Invalid backup file: missing items list.',
+          };
+        }
+
+        // Restore items
+        setItems(data.items);
+        await persist(data.items);
+
+        // Restore outfits if present
+        if (Array.isArray(data.savedOutfits)) {
+          setSavedOutfits(data.savedOutfits);
+          await persistOutfits(data.savedOutfits);
+        }
+
+        // Restore wear history if present
+        if (Array.isArray(data.wearHistory)) {
+          setWearHistory(data.wearHistory);
+          await persistWearHistory(data.wearHistory);
+        }
+
+        // Restore active location if present
+        if (data.currentLocation) {
+          setCurrentLocationState(data.currentLocation);
+          await AppStorage.setItem(LOCATION_KEY, data.currentLocation);
+        }
+
+        // Restore custom location names if present
+        if (data.locationNames) {
+          setLocationNames(data.locationNames);
+          await AppStorage.setItem(LOCATION_NAMES_KEY, JSON.stringify(data.locationNames));
+        }
+
+        return { success: true, count: data.items.length };
+      } catch (err: any) {
+        return {
+          success: false,
+          count: 0,
+          error: err?.message || 'Could not parse JSON backup file.',
+        };
+      }
+    },
+    [persist, persistOutfits, persistWearHistory],
+  );
+
   const value: WardrobeState = useMemo(
     () => ({
       items,
+      currentLocation,
       locationFilter,
       statusFilter,
+      uniformFilter,
       searchQuery,
       loading,
+      savedOutfits,
+      wearHistory,
+      locationNames,
+      setCurrentLocation,
       setLocationFilter,
       setStatusFilter,
+      setUniformFilter,
       setSearchQuery,
+      updateLocationNames,
+      getLocationLabel,
       addItem,
       updateItem,
       deleteItem,
       batchMoveItems,
       batchSetStatus,
+      unpackTransitBag,
+      addSavedOutfit,
+      deleteSavedOutfit,
+      logOutfitWorn,
+      showToast,
+      exportBackup,
+      restoreBackup,
       filteredItems,
       countItems,
     }),
     [
       items,
+      currentLocation,
       locationFilter,
       statusFilter,
+      uniformFilter,
       searchQuery,
       loading,
+      savedOutfits,
+      wearHistory,
+      locationNames,
+      setCurrentLocation,
+      setLocationFilter,
+      setStatusFilter,
+      setUniformFilter,
+      setSearchQuery,
+      updateLocationNames,
+      getLocationLabel,
       addItem,
       updateItem,
       deleteItem,
       batchMoveItems,
       batchSetStatus,
+      unpackTransitBag,
+      addSavedOutfit,
+      deleteSavedOutfit,
+      logOutfitWorn,
+      showToast,
+      exportBackup,
+      restoreBackup,
       filteredItems,
       countItems,
     ],
@@ -395,6 +850,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
   return (
     <WardrobeContext.Provider value={value}>
       {children}
+      <SonnerToast toast={toast} onDismiss={dismissToast} />
     </WardrobeContext.Provider>
   );
 }

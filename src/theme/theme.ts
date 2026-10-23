@@ -1,39 +1,53 @@
 // ─── DormDrobe Design System ─────────────────────────────────────────
-// Apple Frost Liquid Glass — Light Mode (Clean, restrained, tactile).
+// Brand Identity: "Architectural Capsule Utility" (Warm Atelier Minimalist)
+// Tactile linen canvas, warm obsidian ink, and functional botanical semantic accents.
 
 export const Colors = {
-  // Apple iOS grouped system background
-  bgDeep: '#E5E5EA',
-  bgBase: '#F2F2F7',      // Primary app canvas
-  bgLayer: '#FFFFFF',     // Solid elevated layer
+  // Canvas & background hierarchy
+  bgDeep: '#EBE9E1',          // Recessed desktop / frame canvas
+  bgBase: '#F6F5F0',          // Primary warm linen app canvas
+  bgLayer: '#FFFFFF',         // Crisp elevated surface
+  bgSubtle: '#EFECE5',        // Recessed search, segmented toggles & tracks
 
-  // Apple frosted liquid glass surfaces
-  glassLight: 'rgba(255, 255, 255, 0.72)',
-  glassMid: 'rgba(255, 255, 255, 0.88)',
+  // Frosted liquid glass surfaces
+  glassLight: 'rgba(255, 255, 255, 0.76)',
+  glassMid: 'rgba(255, 255, 255, 0.90)',
   glassBright: '#FFFFFF',
   glassWhite: '#FFFFFF',
 
-  // Crisp micro-borders
-  borderGlass: 'rgba(0, 0, 0, 0.06)',
-  borderGlassBright: 'rgba(0, 0, 0, 0.12)',
+  // Tactile micro-borders
+  borderGlass: 'rgba(20, 20, 19, 0.07)',
+  borderGlassBright: 'rgba(20, 20, 19, 0.13)',
+  borderSubtle: 'rgba(20, 20, 19, 0.04)',
 
-  // Brand accent — chic editorial black with indigo touches
-  accent: '#1C1C1E',
-  accentLight: '#007AFF',
+  // Brand accents & anchors
+  accent: '#141413',          // Obsidian Noir (primary interactive ink)
+  accentLight: '#2563EB',     // International Cobalt
+  accentSoft: '#2E2D2B',
+  accentTerracotta: '#C25E3E',
+  accentSage: '#446B54',
 
-  // Status colors (functional Apple Light Mode tints)
-  statusClean: '#34C759',     // Apple system green
-  statusWorn: '#FF9500',      // Apple system orange / amber
-  statusLaundry: '#FF6B35',
-  statusDrying: '#007AFF',    // Apple system blue
-  statusMisplaced: '#FF3B30', // Apple system red
+  // Location Brand Anchors
+  locBatangas: '#1D4ED8',     // Coastal Indigo (Batangas Dorm)
+  locBatangasBg: '#EFF6FF',
+  locCalamba: '#B45309',      // Warm Terracotta Ochre (Calamba Home)
+  locCalambaBg: '#FFFBEB',
+  locInTransit: '#4D6B53',    // Commuter Sage (In-Transit Bag)
+  locInTransitBg: '#F0FDF4',
 
-  // Typography (Apple Light Mode hierarchy)
+  // Semantic Status Tints (Botanical & Mineral Cleanliness Spectrum)
+  statusClean: '#16A34A',     // Laurel Forest Green (Clean & Ready)
+  statusWorn: '#D97706',      // Golden Ochre (Worn / Wearable)
+  statusLaundry: '#EA580C',   // Persimmon Terracotta (In Laundry)
+  statusDrying: '#2563EB',    // Cobalt Air (Drying)
+  statusMisplaced: '#DC2626', // Brick Crimson (Misplaced)
+
+  // Typography hierarchy
   white: '#FFFFFF',
-  textPrimary: '#1C1C1E',     // Deep near-black
-  textSecondary: '#636366',   // Neutral mid-gray
-  textTertiary: '#8E8E93',    // Light neutral gray
-  textInactive: '#C7C7CC',    // Subtle placeholder gray
+  textPrimary: '#141413',     // Deep warm obsidian
+  textSecondary: '#4A4843',   // Mineral graphite (high contrast, WCAG AAA)
+  textTertiary: '#68655E',    // Soft stone neutral (calibrated >4.5:1 WCAG AA on linen)
+  textInactive: '#9A978F',    // Quiet placeholder / secondary cue
 };
 
 export const Radii = {
@@ -57,15 +71,15 @@ export const Spacing = {
 };
 
 export const Typography = {
-  largeTitle: { fontSize: 34, fontWeight: '700' as const, letterSpacing: -0.5 },
-  title1: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.4 },
-  title2: { fontSize: 22, fontWeight: '600' as const, letterSpacing: -0.3 },
-  title3: { fontSize: 20, fontWeight: '600' as const, letterSpacing: -0.2 },
-  headline: { fontSize: 17, fontWeight: '600' as const, letterSpacing: -0.1 },
-  body: { fontSize: 15, fontWeight: '400' as const },
-  callout: { fontSize: 14, fontWeight: '400' as const },
-  subheadline: { fontSize: 13, fontWeight: '400' as const },
-  footnote: { fontSize: 12, fontWeight: '400' as const },
-  caption1: { fontSize: 11, fontWeight: '400' as const },
-  caption2: { fontSize: 10, fontWeight: '400' as const },
+  largeTitle: { fontSize: 34, fontWeight: '700' as const, letterSpacing: -0.6 },
+  title1: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.5 },
+  title2: { fontSize: 22, fontWeight: '600' as const, letterSpacing: -0.4 },
+  title3: { fontSize: 20, fontWeight: '600' as const, letterSpacing: -0.3 },
+  headline: { fontSize: 17, fontWeight: '600' as const, letterSpacing: -0.2 },
+  body: { fontSize: 15, fontWeight: '400' as const, letterSpacing: -0.1 },
+  callout: { fontSize: 14, fontWeight: '400' as const, letterSpacing: -0.1 },
+  subheadline: { fontSize: 13, fontWeight: '400' as const, letterSpacing: 0 },
+  footnote: { fontSize: 12, fontWeight: '400' as const, letterSpacing: 0 },
+  caption1: { fontSize: 11, fontWeight: '500' as const, letterSpacing: 0.2 },
+  caption2: { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.4 },
 };
