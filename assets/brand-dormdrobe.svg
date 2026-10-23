@@ -1,0 +1,18 @@
+<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Rounded Base Badge -->
+  <rect width="72" height="72" rx="18" fill="#141413"/>
+  
+  <!-- Subtle Architectural Grid / Hanger Arch -->
+  <path d="M36 14C38.7614 14 41 16.2386 41 19C41 21.0945 39.7115 22.8885 37.8927 23.6185L37.5 23.75V28H46.8532C49.2081 28 51.3533 29.3512 52.3735 31.4776L57.5186 42.1994C58.4617 44.1649 57.0315 46.4615 54.8451 46.4615H17.1549C14.9685 46.4615 13.5383 44.1649 14.4814 42.1994L19.6265 31.4776C20.6467 29.3512 22.7919 28 25.1468 28H34.5V23.75C32.4932 23.3615 31 21.3653 31 19C31 16.2386 33.2386 14 36 14Z" stroke="#F6F5F0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Coat Lapel / Tie Core Accent in Coastal Indigo & Terracotta -->
+  <path d="M32 37L36 43L40 37" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 43V54" stroke="#F6F5F0" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="36" cy="19" r="2.5" fill="#F59E0B"/>
+  
+  <!-- Horizontal Wardrobe Bar -->
+  <path d="M19 46.5H53" stroke="#F6F5F0" stroke-width="2.5" stroke-linecap="round"/>
+  
+  <!-- Bottom Status Dot (Clean Botanical Mint) -->
+  <circle cx="36" cy="57.5" r="2" fill="#10B981"/>
+</svg>
