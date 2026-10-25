@@ -6,10 +6,13 @@ import {
   TouchableOpacity,
   Animated,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Shirt, Luggage, Sparkles, Settings } from './AppIcons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Home, Shirt, Sparkles, Settings } from './AppIcons';
 import { Colors, Radii } from '../theme/theme';
 
 type TabDef = {
@@ -21,15 +24,14 @@ type TabDef = {
 const TABS: TabDef[] = [
   { name: 'Home', Icon: Home, label: 'Home' },
   { name: 'Closet', Icon: Shirt, label: 'Closet' },
-  { name: 'Batch', Icon: Luggage, label: 'Pack & Wash' },
   { name: 'FitGen', Icon: Sparkles, label: 'Outfits' },
   { name: 'Settings', Icon: Settings, label: 'Settings' },
 ];
 
-const PILL_H = 44;
-const BAR_H = 64;
-const H_PAD = 20;       // outerContainer paddingHorizontal
-const BAR_PAD = 8;     // glassBar paddingHorizontal
+const PILL_H = 46;
+const BAR_H = 66;
+const H_PAD = 18;       // outerContainer paddingHorizontal
+const BAR_PAD = 6;      // glassBar paddingHorizontal
 const PILL_TOP = (BAR_H - PILL_H) / 2;
 
 interface TabButtonProps {
@@ -44,19 +46,19 @@ function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
   const tab = TABS.find((t) => t.name === route.name) ?? TABS[0];
   const IconComponent = tab.Icon;
 
-  const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0.88)).current;
-  const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0.45)).current;
+  const scaleAnim = useRef(new Animated.Value(isFocused ? 1.02 : 0.90)).current;
+  const opacityAnim = useRef(new Animated.Value(isFocused ? 1 : 0.52)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(scaleAnim, {
-        toValue: isFocused ? 1 : 0.88,
+        toValue: isFocused ? 1.02 : 0.90,
         useNativeDriver: true,
-        tension: 320,
-        friction: 24,
+        tension: 340,
+        friction: 26,
       }),
       Animated.timing(opacityAnim, {
-        toValue: isFocused ? 1 : 0.45,
+        toValue: isFocused ? 1 : 0.52,
         duration: 180,
         useNativeDriver: true,
       }),
@@ -68,7 +70,7 @@ function TabButton({ route, isFocused, tabWidth, onPress }: TabButtonProps) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.72}
       style={[styles.tabItem, { width: tabWidth }]}
     >
       <Animated.View
@@ -111,14 +113,14 @@ export default function LiquidGlassTabBar({
   const screenWidth = Math.min(windowWidth, 390);
   const barWidth = screenWidth - H_PAD * 2;
   const tabWidth = (barWidth - BAR_PAD * 2) / visibleRoutes.length;
-  const pillWidth = tabWidth * 0.82;
+  const pillWidth = tabWidth * 0.86;
 
   const getPillX = (idx: number): number => {
     const safeIdx = Math.max(0, idx);
     return BAR_PAD + safeIdx * tabWidth + (tabWidth - pillWidth) / 2;
   };
 
-  // ── Sliding liquid pill ───────────────────────────────────────────
+  // ── Sliding liquid pill spring physics ───────────────────────────
   const pillAnim = useRef(
     new Animated.Value(getPillX(activeVisibleIndex >= 0 ? activeVisibleIndex : 0))
   ).current;
@@ -128,7 +130,7 @@ export default function LiquidGlassTabBar({
       Animated.spring(pillAnim, {
         toValue: getPillX(activeVisibleIndex),
         useNativeDriver: true,
-        tension: 300,
+        tension: 320,
         friction: 26,
       }).start();
     }
@@ -138,46 +140,113 @@ export default function LiquidGlassTabBar({
     <View
       style={[
         styles.outerContainer,
-        { paddingBottom: insets.bottom + 8 },
+        { paddingBottom: Math.max(insets.bottom, 12) + 6 },
       ]}
+      pointerEvents="box-none"
     >
-      <View style={[styles.glassBar, { width: barWidth }]}>
-        {/* Sliding active pill — animates between tabs like liquid glass */}
-        {activeVisibleIndex >= 0 && (
-          <Animated.View
-            style={[
-              styles.activePill,
-              { width: pillWidth, transform: [{ translateX: pillAnim }] },
-            ]}
+      {/* Outer ambient & contact shadow wrapper (unclipped so drop shadows render smoothly) */}
+      <View style={[styles.glassShadowWrapper, { width: barWidth }]}>
+        {/* Rounded glass container with optical clipping */}
+        <View style={styles.glassContainer}>
+          {/* 1. Backdrop Frosted Blur (Native + Web) */}
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 70 : 85}
+            tint="systemUltraThinMaterialLight"
+            blurMethod="dimezisBlurView"
+            style={StyleSheet.absoluteFill}
           />
-        )}
 
-        {/* Tab items */}
-        {visibleRoutes.map((route, index) => {
-          const isFocused = activeVisibleIndex === index;
+          {/* 2. Frosted Milk / Linen Translucent Diffusion Layer */}
+          <View style={styles.frostedDiffusion} pointerEvents="none" />
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
+          {/* 3. Multi-Stop Specular Glass Curvature Sheen */}
+          <LinearGradient
+            colors={[
+              'rgba(255, 255, 255, 0.78)',  // Top specular ambient light
+              'rgba(255, 255, 255, 0.32)',  // Upper mid translucent glass
+              'rgba(255, 255, 255, 0.08)',  // Central clear optical transmission
+              'rgba(246, 245, 240, 0.32)',  // Bottom warm linen ambient reflection
+            ]}
+            locations={[0, 0.28, 0.72, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
 
-          return (
-            <TabButton
-              key={route.key}
-              route={route}
-              index={index}
-              isFocused={isFocused}
-              tabWidth={tabWidth}
-              onPress={onPress}
-            />
-          );
-        })}
+          {/* 4. Beveled Razor Top Highlight (Physical Glass Lip Reflection) */}
+          <LinearGradient
+            colors={[
+              'rgba(255, 255, 255, 0.1)',
+              'rgba(255, 255, 255, 0.95)',
+              'rgba(255, 255, 255, 0.95)',
+              'rgba(255, 255, 255, 0.1)',
+            ]}
+            locations={[0, 0.18, 0.82, 1]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.specularTopRim}
+            pointerEvents="none"
+          />
+
+          {/* 5. Inner Micro-Glow Rim (Optical Refraction Boundary) */}
+          <View style={styles.innerRefractionRim} pointerEvents="none" />
+
+          {/* 6. Sliding Liquid Lens Active Pill */}
+          {activeVisibleIndex >= 0 && (
+            <Animated.View
+              style={[
+                styles.activePill,
+                { width: pillWidth, transform: [{ translateX: pillAnim }] },
+              ]}
+              pointerEvents="none"
+            >
+              {/* Pill frosted gradient */}
+              <LinearGradient
+                colors={[
+                  'rgba(255, 255, 255, 0.92)',
+                  'rgba(255, 255, 255, 0.65)',
+                  'rgba(235, 233, 225, 0.55)',
+                ]}
+                locations={[0, 0.5, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              {/* Pill top specular sheen */}
+              <View style={styles.pillSpecularRim} />
+            </Animated.View>
+          )}
+
+          {/* 7. Tab interactive buttons */}
+          <View style={styles.tabsRow}>
+            {visibleRoutes.map((route, index) => {
+              const isFocused = activeVisibleIndex === index;
+
+              const onPress = () => {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!isFocused && !event.defaultPrevented) {
+                  navigation.navigate(route.name);
+                }
+              };
+
+              return (
+                <TabButton
+                  key={route.key}
+                  route={route}
+                  index={index}
+                  isFocused={isFocused}
+                  tabWidth={tabWidth}
+                  onPress={onPress}
+                />
+              );
+            })}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -191,21 +260,50 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     paddingHorizontal: H_PAD,
+    zIndex: 100,
   },
-  glassBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  glassShadowWrapper: {
     height: BAR_H,
     borderRadius: Radii.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(20, 20, 19, 0.08)',
-    paddingHorizontal: BAR_PAD,
+    // Multi-stage tactile ambient drop shadow
     shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.11,
     shadowRadius: 28,
     elevation: 12,
+    backgroundColor: 'transparent',
+  },
+  glassContainer: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: Radii.pill,
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.72)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(28px) saturate(190%) contrast(102%)',
+        WebkitBackdropFilter: 'blur(28px) saturate(190%) contrast(102%)',
+      } as any,
+      default: {},
+    }),
+  },
+  frostedDiffusion: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(255, 255, 255, 0.58)',
+  },
+  specularTopRim: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1.5,
+    borderRadius: Radii.pill,
+  },
+  innerRefractionRim: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 20, 19, 0.05)',
   },
   activePill: {
     position: 'absolute',
@@ -213,10 +311,29 @@ const styles = StyleSheet.create({
     left: 0,
     height: PILL_H,
     borderRadius: PILL_H / 2,
-    backgroundColor: 'rgba(20, 20, 19, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(20, 20, 19, 0.05)',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  pillSpecularRim: {
+    position: 'absolute',
+    top: 1,
+    left: 8,
+    right: 8,
+    height: 1.2,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: Radii.pill,
+  },
+  tabsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: BAR_PAD,
   },
   tabItem: {
     height: BAR_H,
@@ -229,13 +346,14 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    letterSpacing: 0.25,
   },
   tabLabelActive: {
     color: Colors.textPrimary,
+    fontWeight: '700',
   },
   tabLabelInactive: {
     color: Colors.textTertiary,
+    fontWeight: '500',
   },
 });

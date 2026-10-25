@@ -14,6 +14,9 @@ import {
   Category,
   SavedOutfit,
   WearLogEntry,
+  ClosetSubTab,
+  UnpackStatusAction,
+  DIRTY_STATUSES,
   LOCATION_LABELS,
   LocationNames,
   DEFAULT_LOCATION_NAMES,
@@ -66,12 +69,31 @@ function fromDbItem(db: any): ClothingItem {
   };
 }
 
+// ─── Legacy status normalization ─────────────────────────────────────
+// The UI now uses a 3-step lifecycle (Clean → Worn → In Laundry). Any stored
+// `drying` rows are folded into `in_laundry` so nothing gets orphaned.
+function normalizeLegacyStatuses(list: ClothingItem[]): { items: ClothingItem[]; changed: boolean } {
+  let changed = false;
+  const next = list.map((it) => {
+    if (it.status === 'drying') {
+      changed = true;
+      return { ...it, status: 'in_laundry' as Status };
+    }
+    return it;
+  });
+  return { items: next, changed };
+}
+
 // ─── Context shape ───────────────────────────────────────────────────
 interface WardrobeState {
   /** All clothing items (the single source of truth) */
   items: ClothingItem[];
   /** Synced user active location ("I'm currently at Dorm" vs "at Home") */
   currentLocation: Location;
+  /** Which of the 3 Closet zones is showing (Home deep-links into these) */
+  closetTab: ClosetSubTab;
+  /** True while the Closet is in the "Pack Bag" checklist session */
+  isPackingSession: boolean;
   /** Currently selected location filter (null = All) */
   locationFilter: Location | null;
   /** Currently selected status filter (null = All) */
@@ -91,6 +113,8 @@ interface WardrobeState {
 
   // ── Actions ──────────────────────────────────────────────────────
   setCurrentLocation: (loc: Location) => void;
+  setClosetTab: (tab: ClosetSubTab) => void;
+  setIsPackingSession: (active: boolean) => void;
   setLocationFilter: (loc: Location | null) => void;
   setStatusFilter: (st: Status | null) => void;
   setSearchQuery: (q: string) => void;
@@ -102,13 +126,18 @@ interface WardrobeState {
   deleteItem: (id: string) => void;
   /** Batch: move selected items to a target location */
   batchMoveItems: (ids: string[], to: Location) => void;
-  /** Batch: set status of all items matching a filter */
-  batchSetStatus: (
-    filter: { location?: Location; status?: Status },
-    newStatus: Status,
-  ) => void;
-  /** 1-Tap Unpack Bag: moves all items in 'in_transit_bag' to target location */
-  unpackTransitBag: (toLocation: Location) => void;
+  /**
+   * Batch: set the status of specific items. When `toastMessage` is given, shows a
+   * toast whose Undo restores each item's *own* previous status (and only those items).
+   */
+  batchSetStatusByIds: (ids: string[], newStatus: Status, toastMessage?: string) => void;
+  /** 1-tap card action: Clean → Worn → In Laundry → Clean, with an Undo toast */
+  advanceItemStatus: (id: string) => void;
+  /**
+   * Unpack Bag: moves all items in 'in_transit_bag' to target location.
+   * `statusAction` decides what happens to dirty (worn / in-laundry) pieces.
+   */
+  unpackTransitBag: (toLocation: Location, statusAction?: UnpackStatusAction) => void;
   /** Lookbook: save an outfit combination */
   addSavedOutfit: (outfit: SavedOutfit) => void;
   /** Lookbook: remove an outfit */
@@ -137,6 +166,8 @@ const WardrobeContext = createContext<WardrobeState | null>(null);
 export function WardrobeProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [currentLocation, setCurrentLocationState] = useState<Location>('batangas_dorm');
+  const [closetTab, setClosetTab] = useState<ClosetSubTab>('clean');
+  const [isPackingSession, setIsPackingSession] = useState(false);
   const [locationNames, setLocationNames] = useState<LocationNames>(DEFAULT_LOCATION_NAMES);
   const [locationFilter, setLocationFilter] = useState<Location | null>(null);
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
@@ -291,8 +322,17 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
                 .then(() => console.log('[DormDrobe] Inserted new seed items to Supabase'));
             }
 
-            setItems(enriched);
-            await persist(enriched);
+            const { items: normalized, changed: hadDrying } = normalizeLegacyStatuses(enriched);
+            if (hadDrying) {
+              supabase
+                .from('clothing_items')
+                .update({ status: 'in_laundry' })
+                .eq('status', 'drying')
+                .then(() => {});
+            }
+
+            setItems(normalized);
+            await persist(normalized);
             if (hasBackfill) {
               enriched.forEach((item) => {
                 if (item.imageUrl) {
@@ -337,9 +377,10 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             updated.push(...missingMockItems);
           }
 
-          setItems(updated);
-          if (hasBackfill) {
-            await persist(updated);
+          const { items: normalized, changed: hadDrying } = normalizeLegacyStatuses(updated);
+          setItems(normalized);
+          if (hasBackfill || hadDrying) {
+            await persist(normalized);
           }
         } else {
           setItems(MOCK_CLOTHING);
@@ -475,31 +516,99 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
-  const batchSetStatus = useCallback(
-    (
-      filter: { location?: Location; status?: Status },
-      newStatus: Status,
-    ) => {
+  // Applies one status to a set of ids (state + storage + Supabase). No toast.
+  const applyStatusToIds = useCallback(
+    (ids: string[], newStatus: Status) => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
       setItems((prev) => {
-        const next = prev.map((it) => {
-          const matchLoc = filter.location ? it.location === filter.location : true;
-          const matchSt = filter.status ? it.status === filter.status : true;
-          return matchLoc && matchSt ? { ...it, status: newStatus } : it;
-        });
+        const next = prev.map((it) =>
+          idSet.has(it.id) ? { ...it, status: newStatus } : it,
+        );
         persist(next);
         return next;
       });
 
       if (isSupabaseConfigured) {
-        let query = supabase.from('clothing_items').update({ status: newStatus });
-        if (filter.location) query = query.eq('location', filter.location);
-        if (filter.status) query = query.eq('status', filter.status);
-        query.then(({ error }) => {
-          if (error) console.warn('[DormDrobe] Supabase batch status error:', error.message);
-        });
+        supabase
+          .from('clothing_items')
+          .update({ status: newStatus })
+          .in('id', ids)
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase batch status error:', error.message);
+          });
       }
     },
     [persist],
+  );
+
+  const batchSetStatusByIds = useCallback(
+    (ids: string[], newStatus: Status, toastMessage?: string) => {
+      if (ids.length === 0) return;
+
+      // Snapshot each affected item's own previous status so Undo only touches them.
+      const idSet = new Set(ids);
+      const snapshot = items
+        .filter((it) => idSet.has(it.id))
+        .map((it) => ({ id: it.id, status: it.status }));
+
+      applyStatusToIds(ids, newStatus);
+
+      if (toastMessage) {
+        showToast({
+          message: toastMessage,
+          type: 'success',
+          action: {
+            label: 'Undo',
+            onPress: () => {
+              const groups = new Map<Status, string[]>();
+              snapshot.forEach(({ id, status }) => {
+                groups.set(status, [...(groups.get(status) ?? []), id]);
+              });
+              groups.forEach((groupIds, status) => applyStatusToIds(groupIds, status));
+            },
+          },
+        });
+      }
+    },
+    [items, applyStatusToIds, showToast],
+  );
+
+  // ── 1-tap card action: Clean → Worn → In Laundry → Clean ──────────
+  const advanceItemStatus = useCallback(
+    (id: string) => {
+      const target = items.find((it) => it.id === id);
+      if (!target) return;
+
+      const prevStatus = target.status;
+      const prevLastWornAt = target.lastWornAt;
+      const nextStatus: Status =
+        prevStatus === 'clean' ? 'worn' : prevStatus === 'worn' ? 'in_laundry' : 'clean';
+
+      updateItem(
+        id,
+        nextStatus === 'worn'
+          ? { status: nextStatus, lastWornAt: new Date().toISOString() }
+          : { status: nextStatus },
+      );
+
+      const message =
+        nextStatus === 'worn'
+          ? `Wearing ${target.name} today`
+          : nextStatus === 'in_laundry'
+          ? `${target.name} moved to Laundry`
+          : `${target.name} is clean & ready`;
+
+      showToast({
+        message,
+        type: 'success',
+        action: {
+          label: 'Undo',
+          onPress: () => updateItem(id, { status: prevStatus, lastWornAt: prevLastWornAt }),
+        },
+      });
+    },
+    [items, updateItem, showToast],
   );
 
   const updateLocationNames = useCallback(async (patch: Partial<LocationNames>) => {
@@ -519,59 +628,98 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     [locationNames],
   );
 
-  // ── 1-Tap Unpack Transit Bag ───────────────────────────────────────
-  const unpackTransitBag = useCallback(
-    (toLocation: Location) => {
-      const bagItems = items.filter((it) => it.location === 'in_transit_bag');
-      if (bagItems.length === 0) return;
-
-      const previousItems = [...items];
-      const count = bagItems.length;
-      const cleanCount = bagItems.filter((i) => i.status === 'clean').length;
-      const needsWashCount = bagItems.filter((i) => i.status !== 'clean').length;
-      const breakdown =
-        cleanCount > 0 && needsWashCount > 0
-          ? ` (${cleanCount} clean, ${needsWashCount} to wash)`
-          : '';
+  // ── Unpack Transit Bag (with optional status update for dirty pieces) ──
+  // Writes a location + status per item (state, storage and Supabase).
+  const writeLocationAndStatus = useCallback(
+    (entries: { id: string; location: Location; status: Status }[]) => {
+      if (entries.length === 0) return;
+      const byId = new Map(entries.map((e) => [e.id, e]));
 
       setItems((prev) => {
-        const next = prev.map((it) =>
-          it.location === 'in_transit_bag' ? { ...it, location: toLocation } : it,
-        );
+        const next = prev.map((it) => {
+          const e = byId.get(it.id);
+          return e ? { ...it, location: e.location, status: e.status } : it;
+        });
         persist(next);
         return next;
       });
 
       if (isSupabaseConfigured) {
-        supabase
-          .from('clothing_items')
-          .update({ location: toLocation })
-          .eq('location', 'in_transit_bag')
-          .then(({ error }) => {
-            if (error) console.warn('[DormDrobe] Supabase unpack error:', error.message);
-          });
+        const byLocation = new Map<Location, string[]>();
+        const byStatus = new Map<Status, string[]>();
+        entries.forEach((e) => {
+          byLocation.set(e.location, [...(byLocation.get(e.location) ?? []), e.id]);
+          byStatus.set(e.status, [...(byStatus.get(e.status) ?? []), e.id]);
+        });
+        byLocation.forEach((ids, location) => {
+          supabase
+            .from('clothing_items')
+            .update({ location })
+            .in('id', ids)
+            .then(({ error }) => {
+              if (error) console.warn('[DormDrobe] Supabase unpack error:', error.message);
+            });
+        });
+        byStatus.forEach((ids, status) => {
+          supabase
+            .from('clothing_items')
+            .update({ status })
+            .in('id', ids)
+            .then(({ error }) => {
+              if (error) console.warn('[DormDrobe] Supabase unpack status error:', error.message);
+            });
+        });
+      }
+    },
+    [persist],
+  );
+
+  const unpackTransitBag = useCallback(
+    (toLocation: Location, statusAction: UnpackStatusAction = 'keep') => {
+      const bagItems = items.filter((it) => it.location === 'in_transit_bag');
+      if (bagItems.length === 0) return;
+
+      const count = bagItems.length;
+      const dirtyCount = bagItems.filter((i) => DIRTY_STATUSES.includes(i.status)).length;
+      const cleanCount = bagItems.filter((i) => i.status === 'clean').length;
+
+      const nextStatusOf = (it: ClothingItem): Status => {
+        if (statusAction === 'clean') return 'clean';
+        if (statusAction === 'in_laundry' && DIRTY_STATUSES.includes(it.status)) return 'in_laundry';
+        return it.status;
+      };
+
+      const before = bagItems.map((it) => ({
+        id: it.id,
+        location: 'in_transit_bag' as Location,
+        status: it.status,
+      }));
+      const after = bagItems.map((it) => ({
+        id: it.id,
+        location: toLocation,
+        status: nextStatusOf(it),
+      }));
+
+      writeLocationAndStatus(after);
+
+      let note = '';
+      if (dirtyCount > 0) {
+        if (statusAction === 'clean') note = ` · ${dirtyCount} marked clean`;
+        else if (statusAction === 'in_laundry') note = ` · ${dirtyCount} sent to laundry`;
+        else if (cleanCount > 0) note = ` (${cleanCount} clean, ${dirtyCount} to wash)`;
       }
 
       showToast({
-        message: `Unpacked ${count} item${count > 1 ? 's' : ''} to ${getLocationLabel(toLocation)}${breakdown}`,
+        message: `Unpacked ${count} item${count > 1 ? 's' : ''} to ${getLocationLabel(toLocation)}${note}`,
         type: 'success',
         action: {
           label: 'Undo',
-          onPress: () => {
-            setItems(previousItems);
-            persist(previousItems);
-            if (isSupabaseConfigured) {
-              supabase
-                .from('clothing_items')
-                .update({ location: 'in_transit_bag' })
-                .in('id', bagItems.map((b) => b.id))
-                .then(() => {});
-            }
-          },
+          // Restores only the unpacked items (location + their own previous status).
+          onPress: () => writeLocationAndStatus(before),
         },
       });
     },
-    [items, persist, showToast, getLocationLabel],
+    [items, writeLocationAndStatus, showToast, getLocationLabel],
   );
 
   // ── Lookbook & Wear History ─────────────────────────────────────────
@@ -782,6 +930,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     () => ({
       items,
       currentLocation,
+      closetTab,
+      isPackingSession,
       locationFilter,
       statusFilter,
       uniformFilter,
@@ -791,6 +941,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       wearHistory,
       locationNames,
       setCurrentLocation,
+      setClosetTab,
+      setIsPackingSession,
       setLocationFilter,
       setStatusFilter,
       setUniformFilter,
@@ -801,7 +953,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       updateItem,
       deleteItem,
       batchMoveItems,
-      batchSetStatus,
+      batchSetStatusByIds,
+      advanceItemStatus,
       unpackTransitBag,
       addSavedOutfit,
       deleteSavedOutfit,
@@ -815,6 +968,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     [
       items,
       currentLocation,
+      closetTab,
+      isPackingSession,
       locationFilter,
       statusFilter,
       uniformFilter,
@@ -824,6 +979,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       wearHistory,
       locationNames,
       setCurrentLocation,
+      setClosetTab,
+      setIsPackingSession,
       setLocationFilter,
       setStatusFilter,
       setUniformFilter,
@@ -834,7 +991,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       updateItem,
       deleteItem,
       batchMoveItems,
-      batchSetStatus,
+      batchSetStatusByIds,
+      advanceItemStatus,
       unpackTransitBag,
       addSavedOutfit,
       deleteSavedOutfit,

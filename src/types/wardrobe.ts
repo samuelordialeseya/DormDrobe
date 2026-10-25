@@ -87,6 +87,25 @@ export const STATUS_COLORS: Record<Status, string> = {
   misplaced: '#DC2626',
 };
 
+/**
+ * The simplified 3-step lifecycle shown in the UI: Clean → Worn → In Laundry → Clean.
+ * `drying` stays in the `Status` union only so legacy stored rows never break;
+ * it is normalized to `in_laundry` on load.
+ */
+export const ACTIVE_STATUSES: Status[] = ['clean', 'worn', 'in_laundry'];
+
+/** Statuses that mean "needs washing" (Worn, In Laundry, plus legacy Drying). */
+export const DIRTY_STATUSES: Status[] = ['worn', 'in_laundry', 'drying'];
+
+/** True when a piece is worn / in laundry. Everything else sits in the "Clean & Ready" zone. */
+export const isDirtyStatus = (status: Status): boolean => DIRTY_STATUSES.includes(status);
+
+/** The 3 zones of the Closet screen. */
+export type ClosetSubTab = 'clean' | 'laundry' | 'bag';
+
+/** What to do with dirty (worn / in-laundry) pieces when the Transit Bag is unpacked. */
+export type UnpackStatusAction = 'clean' | 'in_laundry' | 'keep';
+
 export const CATEGORY_LABELS: Record<Category, string> = {
   tops: 'Tops',
   bottoms: 'Bottoms',

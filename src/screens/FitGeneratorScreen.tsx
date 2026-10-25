@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { Location, SavedOutfit, LOCATION_LABELS, STATUS_LABELS } from '../types/
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import {
   X,
+  RotateCcw,
   MoreVertical,
   SlidersHorizontal,
   Dice,
@@ -62,9 +63,9 @@ export default function FitGeneratorScreen() {
   // Layout rows: 2, 3, or 4 pieces
   const [layoutRows, setLayoutRows] = useState<LayoutRowsType>(3);
 
-  // Active filters
+  // Active filters — follow the global "I'm at Dorm / Home" switch, and default to wearable pieces
   const [selectedLoc, setSelectedLoc] = useState<Location>(currentLocation);
-  const [cleanOnly, setCleanOnly] = useState(false);
+  const [cleanOnly, setCleanOnly] = useState(true);
   const [uniformOnly, setUniformOnly] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -93,6 +94,15 @@ export default function FitGeneratorScreen() {
 
   // Kinetic dice rotation animation (Emil Kowalski feedback principle)
   const diceRotateAnim = useRef(new Animated.Value(0)).current;
+
+  // Keep Fit Studio on the same closet as the Home location switch
+  useEffect(() => {
+    setSelectedLoc(currentLocation);
+    setTopIdx(0);
+    setBottomIdx(0);
+    setShoesIdx(0);
+    setAccIdx(0);
+  }, [currentLocation]);
 
   // Filter items for each row
   const availableItems = useMemo(() => {
@@ -303,7 +313,7 @@ export default function FitGeneratorScreen() {
         {/* Top Header */}
         <View style={styles.topHeader}>
           <PressableScale onPress={handleReset} style={styles.iconBtn}>
-            <X size={20} color={Colors.textPrimary} />
+            <RotateCcw size={19} color={Colors.textPrimary} />
           </PressableScale>
 
           <Text style={styles.screenTitle}>Fit Studio</Text>

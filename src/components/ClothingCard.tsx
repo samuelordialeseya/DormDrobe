@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Image } from 'react-native';
-import { ClothingItem, LOCATION_LABELS } from '../types/wardrobe';
+import { ClothingItem, Status } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
 import { Colors, Radii, Spacing } from '../theme/theme';
@@ -15,6 +15,10 @@ interface Props {
   onToggleSelect?: () => void;
   /** Stagger delay for list entrance animation */
   delay?: number;
+  /** Show the 1-tap Wear / To Laundry / Mark Clean button (ignored while selectable) */
+  showQuickAction?: boolean;
+  /** Hide the location badge (useful when the list is already scoped to one place) */
+  hideLocation?: boolean;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -40,6 +44,24 @@ function resolveColor(colorStr: string): string {
   return COLOR_MAP[colorStr.toLowerCase()] ?? '#636366';
 }
 
+/** What the 1-tap button says for each status (Clean → Worn → In Laundry → Clean). */
+const QUICK_ACTIONS: Partial<Record<Status, { label: string; color: string; filled?: boolean }>> = {
+  clean: { label: 'Wear', color: Colors.accent, filled: true },
+  worn: { label: 'To Laundry', color: Colors.statusLaundry },
+  in_laundry: { label: 'Mark Clean', color: Colors.statusClean },
+  drying: { label: 'Mark Clean', color: Colors.statusClean },
+};
+
+function locationColors(location: ClothingItem['location']) {
+  if (location === 'batangas_dorm') {
+    return { fg: Colors.locBatangas, bg: Colors.locBatangasBg, border: 'rgba(29, 78, 216, 0.2)' };
+  }
+  if (location === 'calamba_home') {
+    return { fg: Colors.locCalamba, bg: Colors.locCalambaBg, border: 'rgba(180, 83, 9, 0.2)' };
+  }
+  return { fg: Colors.locInTransit, bg: Colors.locInTransitBg, border: 'rgba(77, 107, 83, 0.2)' };
+}
+
 export default function ClothingCard({
   item,
   onPress,
@@ -47,8 +69,10 @@ export default function ClothingCard({
   selected = false,
   onToggleSelect,
   delay = 0,
+  showQuickAction = false,
+  hideLocation = false,
 }: Props) {
-  const { getLocationLabel } = useWardrobe();
+  const { getLocationLabel, advanceItemStatus } = useWardrobe();
   // Entrance animation
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
@@ -86,6 +110,9 @@ export default function ClothingCard({
     inputRange: [0, 1],
     outputRange: [0.5, 1],
   });
+
+  const quick = showQuickAction && !selectable ? QUICK_ACTIONS[item.status] : undefined;
+  const loc = locationColors(item.location);
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY }] }}>
@@ -156,39 +183,51 @@ export default function ClothingCard({
 
           <View style={styles.footer}>
             <StatusBadge status={item.status} size="sm" />
-            <View
-              style={[
-                styles.locBadge,
-                item.location === 'batangas_dorm' && { backgroundColor: Colors.locBatangasBg, borderColor: 'rgba(29, 78, 216, 0.2)' },
-                item.location === 'calamba_home' && { backgroundColor: Colors.locCalambaBg, borderColor: 'rgba(180, 83, 9, 0.2)' },
-                item.location === 'in_transit_bag' && { backgroundColor: Colors.locInTransitBg, borderColor: 'rgba(77, 107, 83, 0.2)' },
-              ]}
-            >
-              <LocationIcon
-                location={item.location}
-                size={11}
-                color={
-                  item.location === 'batangas_dorm'
-                    ? Colors.locBatangas
-                    : item.location === 'calamba_home'
-                    ? Colors.locCalamba
-                    : Colors.locInTransit
-                }
-                strokeWidth={2}
-              />
-              <Text
+            {!hideLocation && (
+              <View
                 style={[
-                  styles.location,
-                  item.location === 'batangas_dorm' && { color: Colors.locBatangas },
-                  item.location === 'calamba_home' && { color: Colors.locCalamba },
-                  item.location === 'in_transit_bag' && { color: Colors.locInTransit },
+                  styles.locBadge,
+                  { backgroundColor: loc.bg, borderColor: loc.border },
                 ]}
               >
-                {getLocationLabel(item.location)}
-              </Text>
-            </View>
+                <LocationIcon
+                  location={item.location}
+                  size={11}
+                  color={loc.fg}
+                  strokeWidth={2}
+                />
+                <Text style={[styles.location, { color: loc.fg }]}>
+                  {getLocationLabel(item.location)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+
+        {/* 1-tap status action (Wear / To Laundry / Mark Clean) */}
+        {quick && (
+          <PressableScale
+            onPress={() => advanceItemStatus(item.id)}
+            scaleTo={0.92}
+            style={styles.quickWrap}
+          >
+            <View
+              style={[
+                styles.quickBtn,
+                quick.filled
+                  ? { backgroundColor: quick.color, borderColor: quick.color }
+                  : { backgroundColor: quick.color + '12', borderColor: quick.color + '55' },
+              ]}
+            >
+              <Text
+                style={[styles.quickBtnText, { color: quick.filled ? '#FFFFFF' : quick.color }]}
+                numberOfLines={1}
+              >
+                {quick.label}
+              </Text>
+            </View>
+          </PressableScale>
+        )}
       </PressableScale>
     </Animated.View>
   );
@@ -325,7 +364,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
     marginTop: 4,
   },
   locBadge: {
@@ -342,5 +382,23 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     fontSize: 10.5,
     fontWeight: '600',
+  },
+  quickWrap: {
+    alignSelf: 'center',
+    marginLeft: 10,
+  },
+  quickBtn: {
+    minWidth: 78,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
 });

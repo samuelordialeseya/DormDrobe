@@ -41,7 +41,7 @@ import {
 
 const CATEGORIES: Category[] = ['tops', 'bottoms', 'underwear', 'footwear', 'outerwear', 'accessories'];
 const LOCATIONS: Location[] = ['batangas_dorm', 'calamba_home', 'in_transit_bag'];
-const STATUSES: Status[] = ['clean', 'worn', 'in_laundry', 'drying', 'misplaced'];
+const STATUSES: Status[] = ['clean', 'worn', 'in_laundry'];
 
 const LOC_SHORT: Record<Location, string> = {
   batangas_dorm: 'Batangas Dorm',

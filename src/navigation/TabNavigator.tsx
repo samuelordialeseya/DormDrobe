@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import HomeScreen from '../screens/HomeScreen';
 import ClosetScreen from '../screens/ClosetScreen';
-import BatchActionScreen from '../screens/BatchActionScreen';
 import FitGeneratorScreen from '../screens/FitGeneratorScreen';
 import AddItemScreen from '../screens/AddItemScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -22,7 +21,6 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Closet" component={ClosetScreen} />
-      <Tab.Screen name="Batch" component={BatchActionScreen} />
       <Tab.Screen name="FitGen" component={FitGeneratorScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
       <Tab.Screen

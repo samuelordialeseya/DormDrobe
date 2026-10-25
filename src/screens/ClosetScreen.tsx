@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,60 +12,281 @@ import {
   Platform,
   UIManager,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
 import FadeSlideIn from '../components/FadeSlideIn';
 import PressableScale from '../components/PressableScale';
-import { Status, Category, STATUS_LABELS, STATUS_COLORS, CATEGORY_LABELS, ClothingItem } from '../types/wardrobe';
-import { Colors, Radii, Spacing, Typography } from '../theme/theme';
-import { Plus, Search, X, Shirt, CategoryIcon, MenuSandwich, LocationIcon, Sliders } from '../components/AppIcons';
+import LiquidGlassLocationSwitch from '../components/LiquidGlassLocationSwitch';
 import GarmentDetailSheet from '../components/GarmentDetailSheet';
-import ClosetFilterDrawer from '../components/ClosetFilterDrawer';
+import { useUnpackFlow } from '../components/UnpackPromptModal';
+import {
+  Category,
+  ClosetSubTab,
+  ClothingItem,
+  CATEGORY_LABELS,
+  isDirtyStatus,
+} from '../types/wardrobe';
+import { Colors, Radii, Spacing, Typography } from '../theme/theme';
+import {
+  Plus,
+  Search,
+  X,
+  Shirt,
+  CategoryIcon,
+  Luggage,
+  Waves,
+  Check,
+} from '../components/AppIcons';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const CATEGORY_OPTIONS: (Category | null)[] = [null, 'tops', 'bottoms', 'outerwear', 'footwear', 'underwear', 'accessories'];
+const CATEGORY_OPTIONS: (Category | null)[] = [
+  null,
+  'tops',
+  'bottoms',
+  'outerwear',
+  'footwear',
+  'underwear',
+  'accessories',
+];
+
+const ZONES: { key: ClosetSubTab; label: string; color: string }[] = [
+  { key: 'clean', label: 'Clean & Ready', color: Colors.statusClean },
+  { key: 'laundry', label: 'Worn & Laundry', color: Colors.statusWorn },
+  { key: 'bag', label: 'In Bag', color: Colors.locInTransit },
+];
+
+type PackFilter = 'clean' | 'dirty' | 'all';
+
+const PACK_FILTERS: { key: PackFilter; label: string }[] = [
+  { key: 'clean', label: 'Clean Clothes' },
+  { key: 'dirty', label: 'Worn / Laundry' },
+  { key: 'all', label: 'All' },
+];
 
 export default function ClosetScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const {
-    filteredItems,
-    locationFilter,
-    setLocationFilter,
-    statusFilter,
-    setStatusFilter,
-    uniformFilter,
-    setUniformFilter,
+    items,
+    currentLocation,
+    setCurrentLocation,
+    closetTab,
+    setClosetTab,
+    isPackingSession,
+    setIsPackingSession,
     searchQuery,
     setSearchQuery,
     loading,
-    items,
     getLocationLabel,
+    batchMoveItems,
+    batchSetStatusByIds,
+    showToast,
   } = useWardrobe();
+  const { requestUnpack, unpackModal } = useUnpackFlow();
 
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [uniformOnly, setUniformOnly] = useState(false);
+  const [showAllPlaces, setShowAllPlaces] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
-  const [isFilterExpanded, setIsFilterExpanded] = useState<boolean>(false);
 
-  const activeSecondaryCount =
-    (locationFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (uniformFilter ? 1 : 0);
+  // Pack Bag checklist session
+  const [packFilter, setPackFilter] = useState<PackFilter>('clean');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const toggleFilterExpanded = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsFilterExpanded((prev) => !prev);
+  const place = getLocationLabel(currentLocation);
+
+  // Always land on "this closet" when coming back to the tab (e.g. from a Home shortcut)
+  useFocusEffect(
+    useCallback(() => {
+      setShowAllPlaces(false);
+    }, []),
+  );
+
+  // A checklist from another location is meaningless — start fresh when the location changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [currentLocation]);
+
+  // ── Zones ────────────────────────────────────────────────────────
+  const zoneItems = useMemo(() => {
+    const here = items.filter(
+      (it) =>
+        it.location !== 'in_transit_bag' &&
+        (showAllPlaces || it.location === currentLocation),
+    );
+    return {
+      clean: here.filter((it) => !isDirtyStatus(it.status)),
+      laundry: here.filter((it) => isDirtyStatus(it.status)),
+      bag: items.filter((it) => it.location === 'in_transit_bag'),
+    };
+  }, [items, currentLocation, showAllPlaces]);
+
+  const query = searchQuery.trim().toLowerCase();
+  const hasActiveFilters = !!selectedCategory || uniformOnly || query.length > 0;
+
+  const matchesFilters = useCallback(
+    (it: ClothingItem) => {
+      if (selectedCategory && it.category !== selectedCategory) return false;
+      if (uniformOnly && !it.isUniformWhiteTee) return false;
+      if (query) {
+        const hit =
+          it.name.toLowerCase().includes(query) ||
+          (it.brand?.toLowerCase().includes(query) ?? false) ||
+          it.color.toLowerCase().includes(query) ||
+          it.notes.toLowerCase().includes(query);
+        if (!hit) return false;
+      }
+      return true;
+    },
+    [selectedCategory, uniformOnly, query],
+  );
+
+  const displayed = useMemo(() => {
+    const list = zoneItems[closetTab].filter(matchesFilters);
+    if (closetTab === 'laundry') {
+      // Worn first, then what's already in the laundry
+      return [...list].sort(
+        (a, b) => Number(a.status !== 'worn') - Number(b.status !== 'worn'),
+      );
+    }
+    return list;
+  }, [zoneItems, closetTab, matchesFilters]);
+
+  const wornDisplayed = displayed.filter((it) => it.status === 'worn');
+  const bagDirtyCount = zoneItems.bag.filter((it) => isDirtyStatus(it.status)).length;
+
+  // ── Pack Bag session ─────────────────────────────────────────────
+  const packSource = useMemo(
+    () => items.filter((it) => it.location === currentLocation),
+    [items, currentLocation],
+  );
+  const packable = useMemo(
+    () =>
+      packSource.filter((it) =>
+        packFilter === 'clean'
+          ? !isDirtyStatus(it.status)
+          : packFilter === 'dirty'
+          ? isDirtyStatus(it.status)
+          : true,
+      ),
+    [packSource, packFilter],
+  );
+  const selectedCount = packSource.filter((it) => selectedIds.has(it.id)).length;
+
+  const startPackingSession = (filter: PackFilter = 'clean') => {
+    setPackFilter(filter);
+    setSelectedIds(new Set());
+    setIsPackingSession(true);
   };
 
-  const handleResetSecondaryFilters = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setLocationFilter(null);
-    setStatusFilter(null);
-    setUniformFilter(false);
+  const endPackingSession = () => {
+    setIsPackingSession(false);
+    setSelectedIds(new Set());
+    setPackFilter('clean');
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      packable.forEach((it) => next.add(it.id));
+      return next;
+    });
+  };
+
+  // 3-Day Weekend formula: 3 tops + 2 bottoms + 3 underwear + 1 footwear (clean ones here)
+  const handleWeekendPreset = () => {
+    const cleanHere = packSource.filter((it) => !isDirtyStatus(it.status));
+    const pick = (cat: Category, n: number) =>
+      cleanHere.filter((it) => it.category === cat).slice(0, n);
+    const picked = [
+      ...pick('tops', 3),
+      ...pick('bottoms', 2),
+      ...pick('underwear', 3),
+      ...pick('footwear', 1),
+    ];
+    setSelectedIds(new Set(picked.map((it) => it.id)));
+    showToast({
+      message: `Selected 3-Day Weekend Formula (${picked.length} items)`,
+      type: 'info',
+    });
+  };
+
+  const handleConfirmPack = () => {
+    // Only pieces actually at this location can be packed
+    const ids = packSource.filter((it) => selectedIds.has(it.id)).map((it) => it.id);
+    if (ids.length === 0) {
+      showToast({ message: 'Tap clothes to add them to your bag', type: 'warning' });
+      return;
+    }
+    const sourceLoc = currentLocation;
+    batchMoveItems(ids, 'in_transit_bag');
+    showToast({
+      message: `Packed ${ids.length} item${ids.length > 1 ? 's' : ''} in your Transit Bag`,
+      type: 'success',
+      action: {
+        label: 'Undo',
+        onPress: () => batchMoveItems(ids, sourceLoc),
+      },
+    });
+    endPackingSession();
+    setClosetTab('bag');
+  };
+
+  // ── Laundry batch actions (apply to what's currently listed) ─────
+  const handleWornToLaundry = () => {
+    if (wornDisplayed.length === 0) {
+      showToast({ message: 'No worn clothes to move right now', type: 'info' });
+      return;
+    }
+    const n = wornDisplayed.length;
+    batchSetStatusByIds(
+      wornDisplayed.map((it) => it.id),
+      'in_laundry',
+      `Moved ${n} worn item${n > 1 ? 's' : ''} to Laundry`,
+    );
+  };
+
+  const handleWashAll = () => {
+    if (displayed.length === 0) {
+      showToast({ message: 'Nothing to wash right now', type: 'info' });
+      return;
+    }
+    const n = displayed.length;
+    batchSetStatusByIds(
+      displayed.map((it) => it.id),
+      'clean',
+      `Marked ${n} item${n > 1 ? 's' : ''} Clean & Ready`,
+    );
+  };
+
+  const switchZone = (zone: ClosetSubTab) => {
+    if (zone === closetTab) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setClosetTab(zone);
+  };
+
+  const resetFilters = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setSearchQuery('');
+    setSelectedCategory(null);
+    setUniformOnly(false);
+  };
+
+  // ── Loading ──────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={styles.container}>
@@ -74,14 +295,112 @@ export default function ClosetScreen() {
     );
   }
 
-  // Filter with category filter applied
-  const displayedItems = filteredItems.filter((it) => {
-    if (selectedCategory && it.category !== selectedCategory) return false;
-    return true;
-  });
+  // ── Pack Bag checklist session ───────────────────────────────────
+  if (isPackingSession) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <FadeSlideIn delay={0} fromY={-10}>
+            <View style={styles.header}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Pack Bag</Text>
+                <Text style={styles.subtitle}>Tap what you're bringing from {place}</Text>
+              </View>
+              <PressableScale onPress={endPackingSession} scaleTo={0.92}>
+                <View style={styles.cancelBtn}>
+                  <X size={13} color={Colors.textSecondary} strokeWidth={2.4} />
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </View>
+              </PressableScale>
+            </View>
+          </FadeSlideIn>
 
-  const cleanCount = items.filter((i) => i.status === 'clean').length;
-  const wornCount = items.filter((i) => i.status === 'worn').length;
+          <FadeSlideIn delay={30} fromY={8}>
+            <View style={styles.packFilterRow}>
+              {PACK_FILTERS.map((f) => {
+                const active = f.key === packFilter;
+                return (
+                  <TouchableOpacity
+                    key={f.key}
+                    activeOpacity={0.7}
+                    onPress={() => setPackFilter(f.key)}
+                    style={[styles.pill, active && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillText, active && styles.pillTextActive]}>
+                      {f.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.quickSelectRow}>
+              <TouchableOpacity onPress={handleSelectAll} activeOpacity={0.7}>
+                <Text style={styles.quickSelectText}>Select all ({packable.length})</Text>
+              </TouchableOpacity>
+              {selectedCount > 0 && (
+                <TouchableOpacity onPress={() => setSelectedIds(new Set())} activeOpacity={0.7}>
+                  <Text style={[styles.quickSelectText, { color: Colors.textTertiary }]}>
+                    Clear
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={handleWeekendPreset}
+                activeOpacity={0.7}
+                style={styles.presetPill}
+              >
+                <Text style={styles.presetPillText}>3-Day Weekend</Text>
+              </TouchableOpacity>
+            </View>
+          </FadeSlideIn>
+
+          <FlatList
+            data={packable}
+            extraData={selectedIds}
+            keyExtractor={(it) => it.id}
+            renderItem={({ item, index }) => (
+              <ClothingCard
+                item={item}
+                selectable
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={() => toggleSelect(item.id)}
+                delay={Math.min(index * 30, 200)}
+                hideLocation
+              />
+            )}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 190 }]}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <Text style={styles.sessionEmpty}>
+                No {packFilter === 'dirty' ? 'worn or laundry' : packFilter === 'clean' ? 'clean' : ''}{' '}
+                clothes at {place}
+              </Text>
+            }
+          />
+
+          <View
+            pointerEvents="box-none"
+            style={[styles.floatingWrap, { bottom: insets.bottom + 86 }]}
+          >
+            <PressableScale onPress={handleConfirmPack} scaleTo={0.97}>
+              <View style={[styles.floatingBtn, selectedCount === 0 && styles.floatingBtnIdle]}>
+                <Luggage size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.floatingBtnText}>
+                  {selectedCount === 0
+                    ? 'Select clothes to pack'
+                    : `Put ${selectedCount} item${selectedCount > 1 ? 's' : ''} in Transit Bag`}
+                </Text>
+              </View>
+            </PressableScale>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // ── Normal closet ────────────────────────────────────────────────
+  const hideLocationBadge = closetTab === 'bag' || !showAllPlaces;
 
   return (
     <View style={styles.container}>
@@ -91,287 +410,275 @@ export default function ClosetScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>My Closet</Text>
-              <Text style={styles.subtitle}>{displayedItems.length} items</Text>
+              <Text style={styles.subtitle}>
+                {items.length} pieces · {zoneItems.bag.length} in bag
+              </Text>
             </View>
-            <View style={styles.headerRight}>
-              <PressableScale
-                onPress={() => navigation.navigate('Add')}
-                scaleTo={0.92}
-              >
-                <View style={styles.addBtn}>
-                  <Plus size={13} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text style={styles.addBtnText}>Add</Text>
-                </View>
-              </PressableScale>
-              <View style={styles.headerStatBadge}>
-                <Text style={styles.headerStatNum}>{displayedItems.length}</Text>
-              </View>
-            </View>
-          </View>
-        </FadeSlideIn>
-
-        {/* Stats strip — interactive quick toggles */}
-        <FadeSlideIn delay={40} fromY={10}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsStrip}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setStatusFilter(statusFilter === 'clean' ? null : 'clean');
-              }}
-              style={[
-                styles.statChip,
-                statusFilter === 'clean'
-                  ? { backgroundColor: Colors.statusClean + '16', borderColor: Colors.statusClean }
-                  : { borderColor: Colors.statusClean + '60' },
-              ]}
-            >
-              <View style={[styles.statDot, { backgroundColor: Colors.statusClean }]} />
-              <Text style={[styles.statNum, { color: Colors.statusClean }]}>{cleanCount}</Text>
-              <Text style={styles.statLabel}>Clean</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setStatusFilter(statusFilter === 'worn' ? null : 'worn');
-              }}
-              style={[
-                styles.statChip,
-                statusFilter === 'worn'
-                  ? { backgroundColor: Colors.statusWorn + '16', borderColor: Colors.statusWorn }
-                  : { borderColor: Colors.statusWorn + '60' },
-              ]}
-            >
-              <View style={[styles.statDot, { backgroundColor: Colors.statusWorn }]} />
-              <Text style={[styles.statNum, { color: Colors.statusWorn }]}>{wornCount}</Text>
-              <Text style={styles.statLabel}>Worn</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setStatusFilter(null);
-                setLocationFilter(null);
-                setSelectedCategory(null);
-              }}
-              style={[
-                styles.statChip,
-                !statusFilter && !locationFilter && !selectedCategory
-                  ? { borderColor: Colors.accent }
-                  : undefined,
-              ]}
-            >
-              <View style={[styles.statDot, { backgroundColor: Colors.textTertiary }]} />
-              <Text style={[styles.statNum, { color: Colors.textSecondary }]}>{items.length}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </FadeSlideIn>
-
-        {/* Search & Filter Trigger Row */}
-        <FadeSlideIn delay={80} fromY={10}>
-          <View style={styles.searchFilterRow}>
-            <View style={styles.searchWrap}>
-              <Search size={16} color={Colors.textTertiary} strokeWidth={2} style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by name, brand, color…"
-                placeholderTextColor={Colors.textTertiary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                  <X size={15} color={Colors.textTertiary} strokeWidth={2.2} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Sandwich / Filter Expansion Toggle */}
-            <PressableScale onPress={toggleFilterExpanded} scaleTo={0.92}>
-              <View
-                style={[
-                  styles.filterToggleBtn,
-                  isFilterExpanded && styles.filterToggleBtnOpen,
-                  activeSecondaryCount > 0 && styles.filterToggleBtnHasFilters,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Filters (${activeSecondaryCount} active)`}
-              >
-                <MenuSandwich
-                  size={18}
-                  color={isFilterExpanded || activeSecondaryCount > 0 ? '#FFFFFF' : Colors.textPrimary}
-                  strokeWidth={2.3}
-                />
-                {activeSecondaryCount > 0 && (
-                  <View style={styles.filterBadge}>
-                    <Text style={styles.filterBadgeText}>{activeSecondaryCount}</Text>
-                  </View>
-                )}
+            <PressableScale onPress={() => navigation.navigate('Add')} scaleTo={0.92}>
+              <View style={styles.addBtn}>
+                <Plus size={13} color="#FFFFFF" strokeWidth={2.4} />
+                <Text style={styles.addBtnText}>Add</Text>
               </View>
             </PressableScale>
           </View>
         </FadeSlideIn>
 
-        {/* Primary Category Quick-Switch Strip */}
-        <FadeSlideIn delay={110} fromY={10}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-            {CATEGORY_OPTIONS.map((cat) => {
-              const active = cat === selectedCategory;
+        {/* Where am I + start packing */}
+        <FadeSlideIn delay={30} fromY={8}>
+          <View style={styles.locationRow}>
+            <LiquidGlassLocationSwitch
+              currentLocation={currentLocation}
+              onChange={setCurrentLocation}
+            />
+            <PressableScale onPress={() => startPackingSession('clean')} scaleTo={0.94}>
+              <View style={styles.packBtn}>
+                <Luggage size={15} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.packBtnText}>Pack Bag</Text>
+              </View>
+            </PressableScale>
+          </View>
+        </FadeSlideIn>
+
+        {/* The 3 zones */}
+        <FadeSlideIn delay={60} fromY={8}>
+          <View style={styles.zoneRow}>
+            {ZONES.map((z) => {
+              const active = z.key === closetTab;
               return (
                 <TouchableOpacity
-                  key={String(cat)}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedCategory(cat)}
+                  key={z.key}
+                  activeOpacity={0.8}
+                  onPress={() => switchZone(z.key)}
                   style={[
-                    styles.categoryChip,
-                    active && styles.categoryChipActive,
+                    styles.zoneTile,
+                    active && { backgroundColor: '#FFFFFF', borderColor: z.color },
                   ]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
                 >
-                  {cat && (
-                    <CategoryIcon
-                      category={cat}
-                      size={12}
-                      color={active ? '#FFFFFF' : Colors.textSecondary}
-                    />
-                  )}
-                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
-                    {cat ? CATEGORY_LABELS[cat] : 'All Types'}
+                  <Text style={[styles.zoneCount, { color: active ? z.color : Colors.textSecondary }]}>
+                    {zoneItems[z.key].length}
+                  </Text>
+                  <Text style={[styles.zoneLabel, active && { color: Colors.textPrimary, fontWeight: '700' }]}>
+                    {z.label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
+
+          <View style={styles.scopeRow}>
+            {closetTab === 'bag' ? (
+              <Text style={styles.scopeText}>
+                The bag travels with you — unpack wherever you arrive
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.scopeText} numberOfLines={1}>
+                  {showAllPlaces ? 'Showing all places' : `Showing ${place} only`}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setShowAllPlaces((v) => !v);
+                  }}
+                >
+                  <Text style={styles.scopeLink}>
+                    {showAllPlaces ? `Back to ${place}` : 'Show all places'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </FadeSlideIn>
 
-        {/* Collapsed Active Filters Micro-Bar (Make Intent Visible) */}
-        {!isFilterExpanded && activeSecondaryCount > 0 && (
-          <FadeSlideIn delay={0} fromY={-4}>
-            <View style={styles.activeSummaryRow}>
-              <Text style={styles.activeSummaryLabel}>Active:</Text>
-              {locationFilter && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    setLocationFilter(null);
-                  }}
-                  style={styles.activeSummaryChip}
-                >
-                  <LocationIcon location={locationFilter} size={11} color={Colors.textPrimary} strokeWidth={2} />
-                  <Text style={styles.activeSummaryChipText}>
-                    {locationFilter === 'in_transit_bag'
-                      ? 'In Bag'
-                      : getLocationLabel(locationFilter)}
-                  </Text>
-                  <X size={10} color={Colors.textTertiary} strokeWidth={2.4} />
-                </TouchableOpacity>
-              )}
-              {statusFilter && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    setStatusFilter(null);
-                  }}
-                  style={[
-                    styles.activeSummaryChip,
-                    { borderColor: STATUS_COLORS[statusFilter] + '60' },
-                  ]}
-                >
-                  <View style={[styles.statDot, { backgroundColor: STATUS_COLORS[statusFilter] }]} />
-                  <Text style={[styles.activeSummaryChipText, { color: STATUS_COLORS[statusFilter] }]}>
-                    {STATUS_LABELS[statusFilter]}
-                  </Text>
-                  <X size={10} color={Colors.textTertiary} strokeWidth={2.4} />
-                </TouchableOpacity>
-              )}
-              {uniformFilter && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    setUniformFilter(false);
-                  }}
-                  style={[
-                    styles.activeSummaryChip,
-                    { borderColor: Colors.accent },
-                  ]}
-                >
-                  <Shirt size={11} color={Colors.textPrimary} strokeWidth={2} />
-                  <Text style={styles.activeSummaryChipText}>Uniforms</Text>
-                  <X size={10} color={Colors.textTertiary} strokeWidth={2.4} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={handleResetSecondaryFilters}
-                style={styles.clearAllTextBtn}
-              >
-                <Text style={styles.clearAllTextBtnText}>Clear all</Text>
-              </TouchableOpacity>
-            </View>
-          </FadeSlideIn>
-        )}
-
-        {/* Expandable Filter Drawer (Location & Status) */}
-        {isFilterExpanded && (
-          <FadeSlideIn delay={0} fromY={-8}>
-            <ClosetFilterDrawer
-              locationFilter={locationFilter}
-              onSelectLocation={setLocationFilter}
-              statusFilter={statusFilter}
-              onSelectStatus={setStatusFilter}
-              matchedCount={displayedItems.length}
-              totalCount={items.length}
-              onReset={handleResetSecondaryFilters}
-              onClose={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setIsFilterExpanded(false);
-              }}
+        {/* Search */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchWrap}>
+            <Search size={16} color={Colors.textTertiary} strokeWidth={2} style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name, brand, color…"
+              placeholderTextColor={Colors.textTertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCorrect={false}
             />
-          </FadeSlideIn>
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                <X size={15} color={Colors.textTertiary} strokeWidth={2.2} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Category + uniform quick filters */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryRow}
+          style={styles.categoryScroll}
+        >
+          {CATEGORY_OPTIONS.map((cat) => {
+            const active = cat === selectedCategory;
+            return (
+              <TouchableOpacity
+                key={String(cat)}
+                activeOpacity={0.7}
+                onPress={() => setSelectedCategory(cat)}
+                style={[styles.categoryChip, active && styles.categoryChipActive]}
+              >
+                {cat && (
+                  <CategoryIcon
+                    category={cat}
+                    size={12}
+                    color={active ? '#FFFFFF' : Colors.textSecondary}
+                  />
+                )}
+                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
+                  {cat ? CATEGORY_LABELS[cat] : 'All Types'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setUniformOnly((v) => !v)}
+            style={[styles.categoryChip, uniformOnly && styles.uniformChipActive]}
+          >
+            <Shirt size={12} color={uniformOnly ? Colors.locBatangas : Colors.textSecondary} strokeWidth={2} />
+            <Text
+              style={[
+                styles.categoryChipText,
+                uniformOnly && { color: Colors.locBatangas, fontWeight: '700' },
+              ]}
+            >
+              Uniform
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Zone-specific actions */}
+        {closetTab === 'laundry' && zoneItems.laundry.length > 0 && (
+          <View style={styles.actionBar}>
+            <View style={styles.actionBarRow}>
+              <PressableScale onPress={handleWornToLaundry} scaleTo={0.95} style={{ flex: 1 }}>
+                <View style={[styles.actionBtn, wornDisplayed.length === 0 && styles.actionBtnIdle]}>
+                  <Waves size={14} color={Colors.statusLaundry} strokeWidth={2.2} />
+                  <Text style={[styles.actionBtnText, { color: Colors.statusLaundry }]} numberOfLines={1}>
+                    Worn → Laundry ({wornDisplayed.length})
+                  </Text>
+                </View>
+              </PressableScale>
+              <PressableScale onPress={handleWashAll} scaleTo={0.95} style={{ flex: 1 }}>
+                <View style={[styles.actionBtn, styles.actionBtnClean, displayed.length === 0 && styles.actionBtnIdle]}>
+                  <Check size={14} color="#FFFFFF" strokeWidth={2.6} />
+                  <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]} numberOfLines={1}>
+                    Wash all → Clean ({displayed.length})
+                  </Text>
+                </View>
+              </PressableScale>
+            </View>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => startPackingSession('dirty')}>
+              <Text style={styles.actionLink}>Bringing dirty laundry home? Pack it in the bag →</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
-        {/* List — stagger each card */}
+        {closetTab === 'bag' && zoneItems.bag.length > 0 && (
+          <View style={styles.actionBar}>
+            <PressableScale onPress={requestUnpack} scaleTo={0.97}>
+              <View style={styles.unpackBtn}>
+                <Luggage size={17} color="#FFFFFF" strokeWidth={2.2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.unpackBtnText}>Unpack to {place}</Text>
+                  <Text style={styles.unpackBtnSub}>
+                    {zoneItems.bag.length - bagDirtyCount} clean · {bagDirtyCount} worn / dirty
+                  </Text>
+                </View>
+              </View>
+            </PressableScale>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => startPackingSession('clean')}>
+              <Text style={styles.actionLink}>+ Pack more clothes</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* List */}
         <FlatList
-          data={displayedItems}
+          data={displayed}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <ClothingCard
               item={item}
               delay={Math.min(index * 30, 200)}
               onPress={() => setSelectedItem(item)}
+              showQuickAction={closetTab !== 'bag'}
+              hideLocation={hideLocationBadge}
             />
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <FadeSlideIn delay={150}>
               <View style={styles.empty}>
                 <View style={styles.emptyIconBox}>
-                  <Shirt size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                  {closetTab === 'bag' ? (
+                    <Luggage size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                  ) : closetTab === 'laundry' ? (
+                    <Waves size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                  ) : (
+                    <Shirt size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                  )}
                 </View>
-                <Text style={styles.emptyTitle}>Nothing here</Text>
-                <Text style={styles.emptyText}>No items match your active filters</Text>
-                {(locationFilter || statusFilter || selectedCategory || searchQuery.length > 0) && (
-                  <PressableScale
-                    onPress={() => {
-                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                      setSearchQuery('');
-                      setLocationFilter(null);
-                      setStatusFilter(null);
-                      setSelectedCategory(null);
-                    }}
-                    scaleTo={0.94}
-                    style={styles.emptyResetBtn}
-                  >
-                    <Text style={styles.emptyResetBtnText}>Reset All Filters</Text>
-                  </PressableScale>
+
+                {hasActiveFilters ? (
+                  <>
+                    <Text style={styles.emptyTitle}>No matches</Text>
+                    <Text style={styles.emptyText}>Nothing here fits your search or filters</Text>
+                    <PressableScale onPress={resetFilters} scaleTo={0.94} style={styles.emptyBtn}>
+                      <Text style={styles.emptyBtnText}>Reset filters</Text>
+                    </PressableScale>
+                  </>
+                ) : closetTab === 'bag' ? (
+                  <>
+                    <Text style={styles.emptyTitle}>Your bag is empty</Text>
+                    <Text style={styles.emptyText}>Pack what you're bringing for the trip</Text>
+                    <PressableScale
+                      onPress={() => startPackingSession('clean')}
+                      scaleTo={0.94}
+                      style={styles.emptyBtn}
+                    >
+                      <Text style={styles.emptyBtnText}>Pack Bag</Text>
+                    </PressableScale>
+                  </>
+                ) : closetTab === 'laundry' ? (
+                  <>
+                    <Text style={styles.emptyTitle}>Laundry basket is empty</Text>
+                    <Text style={styles.emptyText}>
+                      Nothing worn or waiting to be washed {showAllPlaces ? '' : `at ${place}`}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.emptyTitle}>No clean clothes here</Text>
+                    <Text style={styles.emptyText}>
+                      {showAllPlaces ? 'Nothing is clean right now' : `Nothing clean at ${place} right now`}
+                    </Text>
+                    {zoneItems.laundry.length > 0 && (
+                      <PressableScale
+                        onPress={() => switchZone('laundry')}
+                        scaleTo={0.94}
+                        style={styles.emptyBtn}
+                      >
+                        <Text style={styles.emptyBtnText}>
+                          See laundry ({zoneItems.laundry.length})
+                        </Text>
+                      </PressableScale>
+                    )}
+                  </>
                 )}
               </View>
             </FadeSlideIn>
@@ -385,6 +692,8 @@ export default function ClosetScreen() {
           onClose={() => setSelectedItem(null)}
           onEdit={(it) => navigation.navigate('Add', { editItem: it })}
         />
+
+        {unpackModal}
       </SafeAreaView>
     </View>
   );
@@ -416,11 +725,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: -0.1,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,9 +732,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     borderRadius: Radii.pill,
     paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: Colors.accent,
+    paddingVertical: 8,
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
@@ -442,174 +744,110 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.2,
   },
-  headerStatBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: '#FFFFFF',
+    borderRadius: Radii.pill,
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-  },
-  headerStatNum: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  statsStrip: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.sm,
-  },
-  statChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    borderColor: Colors.borderGlassBright,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: Radii.pill,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
   },
-  statDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statNum: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  statLabel: {
-    color: Colors.textTertiary,
+  cancelBtnText: {
+    color: Colors.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  searchFilterRow: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
+  packBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: Colors.locInTransit,
+    borderRadius: Radii.pill,
+    paddingHorizontal: 16,
+    height: 36,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+  },
+  packBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
+  zoneRow: {
+    flexDirection: 'row',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.xs,
+  },
+  zoneTile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: Radii.lg,
+    backgroundColor: Colors.bgSubtle,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  zoneCount: {
+    fontSize: 21,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  zoneLabel: {
+    color: Colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  scopeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  scopeText: {
+    flexShrink: 1,
+    color: Colors.textTertiary,
+    fontSize: 11.5,
+  },
+  scopeLink: {
+    color: Colors.textPrimary,
+    fontSize: 11.5,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  searchRow: {
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.xs,
   },
   searchWrap: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     paddingHorizontal: Spacing.md,
-    height: 46,
+    height: 44,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
-  },
-  filterToggleBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: Radii.xl,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    position: 'relative',
-  },
-  filterToggleBtnOpen: {
-    backgroundColor: Colors.accent,
-    borderColor: Colors.accent,
-  },
-  filterToggleBtnHasFilters: {
-    backgroundColor: Colors.accent,
-    borderColor: Colors.accent,
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.accentLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    paddingHorizontal: 3,
-  },
-  filterBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  activeSummaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 6,
-    paddingBottom: 2,
-    flexWrap: 'wrap',
-  },
-  activeSummaryLabel: {
-    color: Colors.textTertiary,
-    fontSize: 11,
-    fontWeight: '600',
-    marginRight: 2,
-  },
-  activeSummaryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: Radii.pill,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-  },
-  activeSummaryChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  clearAllTextBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  clearAllTextBtnText: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    textDecorationLine: 'underline',
-    fontWeight: '500',
-  },
-  searchIcon: {
-    color: Colors.textTertiary,
-    fontSize: 18,
-    marginRight: 8,
   },
   searchInput: {
     flex: 1,
@@ -620,15 +858,14 @@ const styles = StyleSheet.create({
   clearBtn: {
     padding: 4,
   },
-  clearBtnText: {
-    color: Colors.textTertiary,
-    fontSize: 14,
+  categoryScroll: {
+    flexGrow: 0,
   },
   categoryRow: {
     flexDirection: 'row',
     gap: 6,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xs,
+    paddingTop: Spacing.sm,
     paddingBottom: 2,
   },
   categoryChip: {
@@ -641,14 +878,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
   },
   categoryChipActive: {
     backgroundColor: Colors.accent,
     borderColor: Colors.accent,
+  },
+  uniformChipActive: {
+    backgroundColor: Colors.locBatangasBg,
+    borderColor: 'rgba(29, 78, 216, 0.4)',
   },
   categoryChipText: {
     color: Colors.textSecondary,
@@ -659,37 +896,80 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  statusRow: {
-    flexDirection: 'row',
-    gap: 6,
+  actionBar: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xs,
+    paddingTop: Spacing.sm,
+    gap: 8,
   },
-  statusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: Radii.pill,
-    backgroundColor: '#FFFFFF',
+  actionBarRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: Radii.lg,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(234, 88, 12, 0.08)',
     borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
+    borderColor: 'rgba(234, 88, 12, 0.3)',
   },
-  statusChipText: {
-    color: Colors.textTertiary,
+  actionBtnClean: {
+    backgroundColor: Colors.statusClean,
+    borderColor: Colors.statusClean,
+  },
+  actionBtnIdle: {
+    opacity: 0.45,
+  },
+  actionBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+    flexShrink: 1,
+  },
+  actionLink: {
+    color: Colors.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingVertical: 2,
+  },
+  unpackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.locInTransit,
+    borderRadius: Radii.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 12,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  unpackBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  unpackBtnSub: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11.5,
+    marginTop: 1,
   },
   list: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: 120,
   },
   empty: {
     alignItems: 'center',
-    marginTop: 70,
+    marginTop: 50,
   },
   emptyIconBox: {
     marginBottom: 14,
@@ -704,8 +984,10 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.textTertiary,
     fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xl,
   },
-  emptyResetBtn: {
+  emptyBtn: {
     marginTop: 18,
     backgroundColor: Colors.accent,
     paddingHorizontal: 20,
@@ -716,10 +998,99 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
   },
-  emptyResetBtnText: {
+  emptyBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: -0.1,
+  },
+
+  // Pack Bag session
+  packFilterRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
+  },
+  pill: {
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: Radii.pill,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  pillActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  pillText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  pillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  quickSelectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
+  },
+  quickSelectText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  presetPill: {
+    marginLeft: 'auto',
+    backgroundColor: Colors.locBatangasBg,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 78, 216, 0.22)',
+  },
+  presetPillText: {
+    color: Colors.locBatangas,
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  sessionEmpty: {
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 40,
+    fontSize: 13,
+  },
+  floatingWrap: {
+    position: 'absolute',
+    left: Spacing.xl,
+    right: Spacing.xl,
+  },
+  floatingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    backgroundColor: Colors.accent,
+    borderRadius: Radii.xl,
+    paddingVertical: 15,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  floatingBtnIdle: {
+    backgroundColor: Colors.textTertiary,
+  },
+  floatingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

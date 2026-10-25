@@ -42,7 +42,7 @@ interface Props {
   onEdit?: (item: ClothingItem) => void;
 }
 
-const ALL_STATUSES: Status[] = ['clean', 'worn', 'in_laundry', 'drying', 'misplaced'];
+const ALL_STATUSES: Status[] = ['clean', 'worn', 'in_laundry'];
 const ALL_LOCATIONS: Location[] = ['batangas_dorm', 'calamba_home', 'in_transit_bag'];
 
 const COLOR_MAP: Record<string, string> = {

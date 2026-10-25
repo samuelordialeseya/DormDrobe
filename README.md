@@ -62,9 +62,8 @@ DormDrobe's core mechanism: the barrier to wardrobe tracking is effortless (1-ta
 - **Target:** Modern browsers (Chrome, Safari, Edge, Firefox)
 - **Frame:** Built-in Apple-style mobile device simulator with responsive centering
 - **Routes & Navigation Tabs:**
-  - `/home` — Dashboard, wardrobe barometer, quick actions, luggage unpack banner, recent wear rotations
-  - `/closet` — Searchable catalog, category & location filters, GarmentDetailSheet with condition cycle
-  - `/batch` — Batch laundry triage & commuter luggage packing assistant
+  - `/home` — Location switch, transit-bag banner (1-tap unpack), tappable Clean / Laundry / Bag counters, quick actions
+  - `/closet` — Three zones (**Clean & Ready**, **Worn & Laundry**, **In Bag**), 1-tap Wear / To Laundry / Mark Clean on every card, and the **Pack Bag** checklist session
   - `/fitgen` — Multi-row Fit Studio, Dice outfit generator, Lookbook bookmarks, and Wear Log history
   - `/settings` — Profile, Supabase cloud sync status, custom campus locations, local storage reset
   - `/add` — Garment capture with camera/picker, color swatches, uniform flags, and local/AI background removal
@@ -174,7 +173,8 @@ dormdrobe/
 │   │   ├── OutfitTierSeparator.tsx# Clean visual dividers for Fit Studio layers
 │   │   ├── PressableScale.tsx    # Haptic-like spring press interaction wrapper
 │   │   ├── SonnerToast.tsx       # Floating interactive undo notification toast
-│   │   └── DeviceFrame.tsx       # Responsive mobile frame for web browser preview
+│   │   ├── DeviceFrame.tsx       # Responsive mobile frame for web browser preview
+│   │   └── UnpackPromptModal.tsx # Smart Unpack sheet (+ shared useUnpackFlow hook)
 │   ├── config/
 │   │   └── supabase.ts           # Supabase client initialization & auth setup
 │   ├── context/
@@ -182,9 +182,8 @@ dormdrobe/
 │   ├── navigation/
 │   │   └── TabNavigator.tsx      # Bottom tab navigator with custom glass tab bar
 │   ├── screens/                  # Application screens
-│   │   ├── HomeScreen.tsx        # Dashboard, barometer, luggage unpacker, recent feed
-│   │   ├── ClosetScreen.tsx      # Searchable wardrobe grid & detailed garment inspection
-│   │   ├── BatchActionScreen.tsx # Multi-item laundry triage & commuter packing wizard
+│   │   ├── HomeScreen.tsx        # Location switch, bag banner, status counters, quick actions
+│   │   ├── ClosetScreen.tsx      # 3-zone closet, laundry actions, bag tab & Pack Bag session
 │   │   ├── FitGeneratorScreen.tsx# Fit Studio, dice mixer, Lookbook, and Wear Log
 │   │   ├── AddItemScreen.tsx     # Photo capture, swatch picker, and garment cataloging
 │   │   └── SettingsScreen.tsx    # User profile, location preferences, Supabase sync
@@ -349,10 +348,10 @@ flowchart TD
 1. **Morning Routine:** The student opens `/fitgen` (Fit Studio) to roll or customize their outfit for the day.
 2. **Availability Check:** Live badges confirm all pieces are physically present at the current location and in `clean` status.
 3. **Wear Today:** Tapping "Wear Today" logs the combination to Wear History and transitions items to `worn`.
-4. **Midweek Triage:** Items move through the botanical cleanliness cycle (`Worn → In Laundry → Drying → Clean`) with instant undo toasts.
-5. **Friday Commute:** The student opens `/batch` (Pack Mode) and selects the **3-Day Weekend Formula** to quickly pack clean clothes and dirty laundry to bring home.
-6. **Transit:** All packed garments reside safely in the `in_transit_bag` buffer.
-7. **Arrival & 1-Tap Unpack:** Upon reaching Calamba Home, the persistent arrival banner prompts: *"You have items in transit. Unpack to Calamba Home?"* Tapping **Unpack** moves all items into the home closet in one tap.
+4. **Laundry:** In **Closet → Worn & Laundry**, tap **Worn → Laundry** and **Wash all → Clean** (or the 1-tap button on any card). The lifecycle is `Clean → Worn → In Laundry → Clean`, each step with an instant Undo toast.
+5. **Friday Commute:** Tap **Pack Bag** (Home or Closet) to open the checklist session, tick what you're bringing (or tap **3-Day Weekend**), then **Put N items in Transit Bag**.
+6. **Transit:** All packed garments reside safely in the `in_transit_bag` buffer, visible in **Closet → In Bag**.
+7. **Arrival & Unpack:** Switch to where you arrived and tap **Unpack**. If the bag holds worn / laundry pieces you choose **Mark all clean**, **Send dirty ones to laundry**, or **Keep as they are**; an all-clean bag unpacks in a single tap.
 8. **Cloud Sync:** State changes persist immediately to AsyncStorage and sync to Supabase in the background when connected.
 
 ---
@@ -431,9 +430,8 @@ npx expo export
 
 | Component | Purpose |
 |---|---|
-| `HomeScreen.tsx` | Dashboard, wardrobe barometer, luggage unpack banner, recent wear feed |
-| `ClosetScreen.tsx` | Searchable wardrobe grid, category filters, and detail trigger |
-| `BatchActionScreen.tsx` | Dual-mode batch laundry triage and commuter packing assistant |
+| `HomeScreen.tsx` | Location switch, transit-bag banner, Clean / Laundry / Bag counters, quick actions |
+| `ClosetScreen.tsx` | Three-zone closet, laundry batch actions, bag tab, and Pack Bag checklist session |
 | `FitGeneratorScreen.tsx` | Multi-row Fit Studio, kinetic dice mixer, Lookbook, and Wear Log |
 | `AddItemScreen.tsx` | Garment camera capture, swatch picker, and uniform categorization |
 | `GarmentDetailSheet.tsx` | Spring bottom sheet with 1-tap condition cycle and location transfers |
