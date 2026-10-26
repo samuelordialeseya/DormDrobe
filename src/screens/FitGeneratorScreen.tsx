@@ -4,38 +4,34 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  FlatList,
   Modal,
-  Switch,
   Animated,
-  LayoutAnimation,
   TextInput,
   TouchableOpacity,
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useWardrobe } from '../context/WardrobeContext';
 import OutfitSwiperRow from '../components/OutfitSwiperRow';
 import OutfitTierSeparator from '../components/OutfitTierSeparator';
 import PressableScale from '../components/PressableScale';
 import FadeSlideIn from '../components/FadeSlideIn';
 import LiquidGlassLocationSwitch from '../components/LiquidGlassLocationSwitch';
-import { Location, SavedOutfit, LOCATION_LABELS, STATUS_LABELS } from '../types/wardrobe';
+import { SavedOutfit, isDirtyStatus } from '../types/wardrobe';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import {
   X,
   RotateCcw,
-  MoreVertical,
-  SlidersHorizontal,
   Dice,
-  LayoutRowsIcon,
   Check,
-  GraduationCap,
-  House,
   Bookmark,
   Trash2,
   Clock,
   CategoryIcon,
+  Sparkles,
+  Shirt,
+  SlidersHorizontal,
 } from '../components/AppIcons';
 
 type TabType = 'dress_me' | 'lookbook' | 'wear_log';
@@ -43,16 +39,31 @@ type LayoutRowsType = 2 | 3 | 4;
 
 const TAG_PRESETS = ['Campus', 'Uniform', 'Casual', 'Friday', 'Rainy Day', 'Library'];
 
+function formatRelativeTime(isoString: string | null | undefined): string {
+  if (!isoString) return 'Never worn';
+  const then = new Date(isoString).getTime();
+  const now = Date.now();
+  const diffDays = Math.floor((now - then) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Worn today';
+  if (diffDays === 1) return 'Worn yesterday';
+  if (diffDays < 7) return `Worn ${diffDays}d ago`;
+  if (diffDays < 30) return `Worn ${Math.floor(diffDays / 7)}w ago`;
+  return `Worn ${new Date(isoString).toLocaleDateString()}`;
+}
+
 export default function FitGeneratorScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const {
     items,
     currentLocation,
+    setCurrentLocation,
     savedOutfits,
     wearHistory,
     addSavedOutfit,
     deleteSavedOutfit,
     logOutfitWorn,
+    deleteWearLog,
     showToast,
     getLocationLabel,
   } = useWardrobe();
@@ -63,11 +74,9 @@ export default function FitGeneratorScreen() {
   // Layout rows: 2, 3, or 4 pieces
   const [layoutRows, setLayoutRows] = useState<LayoutRowsType>(3);
 
-  // Active filters — follow the global "I'm at Dorm / Home" switch, and default to wearable pieces
-  const [selectedLoc, setSelectedLoc] = useState<Location>(currentLocation);
+  // Active filters — live on screen (Intent & Impeccable: No hidden modal)
   const [cleanOnly, setCleanOnly] = useState(true);
   const [uniformOnly, setUniformOnly] = useState(false);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Save outfit modal state
   const [saveModalVisible, setSaveModalVisible] = useState(false);
@@ -87,58 +96,67 @@ export default function FitGeneratorScreen() {
   const [lockAcc, setLockAcc] = useState(false);
 
   // FlatList refs for programmatic scrolling on shuffle
-  const topListRef = useRef<FlatList>(null);
-  const bottomListRef = useRef<FlatList>(null);
-  const shoesListRef = useRef<FlatList>(null);
-  const accListRef = useRef<FlatList>(null);
+  const topListRef = useRef<any>(null);
+  const bottomListRef = useRef<any>(null);
+  const shoesListRef = useRef<any>(null);
+  const accListRef = useRef<any>(null);
 
-  // Kinetic dice rotation animation (Emil Kowalski feedback principle)
+  // Kinetic dice rotation animation (Emil Kowalski principle)
   const diceRotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Keep Fit Studio on the same closet as the Home location switch
-  useEffect(() => {
-    setSelectedLoc(currentLocation);
-    setTopIdx(0);
-    setBottomIdx(0);
-    setShoesIdx(0);
-    setAccIdx(0);
-  }, [currentLocation]);
-
-  // Filter items for each row
-  const availableItems = useMemo(() => {
-    return items.filter((item) => {
-      if (item.location !== selectedLoc) return false;
-      if (cleanOnly && item.status !== 'clean') return false;
-      return true;
-    });
-  }, [items, selectedLoc, cleanOnly]);
-
+  // Filter items for each row — HONEST filtering (Intent: transparent consequences, no silent deception)
   const tops = useMemo(() => {
-    const list = availableItems.filter((i) => {
+    return items.filter((i) => {
+      if (i.location !== currentLocation) return false;
+      if (cleanOnly && isDirtyStatus(i.status)) return false;
       if (uniformOnly && !i.isUniformWhiteTee) return false;
       return i.category === 'tops' || i.category === 'outerwear';
     });
-    return list.length > 0 ? list : items.filter((i) => i.category === 'tops');
-  }, [availableItems, items, uniformOnly]);
+  }, [items, currentLocation, cleanOnly, uniformOnly]);
 
   const bottoms = useMemo(() => {
-    const list = availableItems.filter((i) => i.category === 'bottoms');
-    return list.length > 0 ? list : items.filter((i) => i.category === 'bottoms');
-  }, [availableItems, items]);
+    return items.filter((i) => {
+      if (i.location !== currentLocation) return false;
+      if (cleanOnly && isDirtyStatus(i.status)) return false;
+      return i.category === 'bottoms';
+    });
+  }, [items, currentLocation, cleanOnly]);
 
   const shoes = useMemo(() => {
-    const list = availableItems.filter((i) => i.category === 'footwear');
-    return list.length > 0 ? list : items.filter((i) => i.category === 'footwear');
-  }, [availableItems, items]);
+    return items.filter((i) => {
+      if (i.location !== currentLocation) return false;
+      if (cleanOnly && isDirtyStatus(i.status)) return false;
+      return i.category === 'footwear';
+    });
+  }, [items, currentLocation, cleanOnly]);
 
   const accessories = useMemo(() => {
-    const list = availableItems.filter((i) => i.category === 'accessories');
-    return list.length > 0 ? list : items.filter((i) => i.category === 'accessories');
-  }, [availableItems, items]);
+    return items.filter((i) => {
+      if (i.location !== currentLocation) return false;
+      if (cleanOnly && isDirtyStatus(i.status)) return false;
+      return i.category === 'accessories';
+    });
+  }, [items, currentLocation, cleanOnly]);
+
+  // Autonomy: Auto-clamp indices whenever lists change to avoid out-of-bounds or dimmed items
+  useEffect(() => {
+    if (tops.length > 0 && topIdx >= tops.length) setTopIdx(Math.max(0, tops.length - 1));
+  }, [tops.length, topIdx]);
+
+  useEffect(() => {
+    if (bottoms.length > 0 && bottomIdx >= bottoms.length) setBottomIdx(Math.max(0, bottoms.length - 1));
+  }, [bottoms.length, bottomIdx]);
+
+  useEffect(() => {
+    if (shoes.length > 0 && shoesIdx >= shoes.length) setShoesIdx(Math.max(0, shoes.length - 1));
+  }, [shoes.length, shoesIdx]);
+
+  useEffect(() => {
+    if (accessories.length > 0 && accIdx >= accessories.length) setAccIdx(Math.max(0, accessories.length - 1));
+  }, [accessories.length, accIdx]);
 
   // Shuffle all unpinned rows + kinetic dice animation
   const handleShuffle = () => {
-    // Spin dice 360 deg
     diceRotateAnim.setValue(0);
     Animated.spring(diceRotateAnim, {
       toValue: 1,
@@ -183,17 +201,21 @@ export default function FitGeneratorScreen() {
     setLockAcc(false);
   };
 
+  const isAnyRowPinned = lockTop || lockBottom || lockShoes || lockAcc;
+  const isAnyRowOffset = topIdx > 0 || bottomIdx > 0 || shoesIdx > 0 || accIdx > 0;
+  const showResetBtn = isAnyRowPinned || isAnyRowOffset;
+
   // Currently selected items from active swipers
   const currentSelection = useMemo(() => {
-    const top = tops[topIdx] ?? tops[0];
-    const bottom = bottoms[bottomIdx] ?? bottoms[0];
-    const shoe = layoutRows >= 3 ? (shoes[shoesIdx] ?? shoes[0]) : null;
-    const acc = layoutRows === 4 ? (accessories[accIdx] ?? accessories[0]) : null;
+    const top = tops[topIdx] ?? tops[0] ?? null;
+    const bottom = bottoms[bottomIdx] ?? bottoms[0] ?? null;
+    const shoe = layoutRows >= 3 ? (shoes[shoesIdx] ?? shoes[0] ?? null) : null;
+    const acc = layoutRows === 4 ? (accessories[accIdx] ?? accessories[0] ?? null) : null;
 
     return { top, bottom, shoe, acc };
   }, [tops, topIdx, bottoms, bottomIdx, shoes, shoesIdx, accessories, accIdx, layoutRows]);
 
-  // Action 1: Wear Today (marks clothes worn & logs to wearHistory)
+  // Action: Wear Today (marks clothes worn & logs to wearHistory)
   const handleWearToday = () => {
     const itemIds = [
       currentSelection.top?.id,
@@ -207,11 +229,15 @@ export default function FitGeneratorScreen() {
       return;
     }
 
-    logOutfitWorn(itemIds, 'Fit Generator Combo');
+    logOutfitWorn(itemIds, 'Fit Studio Combo');
   };
 
-  // Action 2: Open Save to Lookbook Modal
+  // Action: Open Save to Lookbook Modal
   const handleOpenSaveModal = () => {
+    if (!currentSelection.top && !currentSelection.bottom) {
+      showToast({ message: 'Select clothes first before saving', type: 'warning' });
+      return;
+    }
     setOutfitNameInput(`Outfit #${savedOutfits.length + 1}`);
     setSelectedTags(['Campus']);
     setSaveModalVisible(true);
@@ -243,6 +269,32 @@ export default function FitGeneratorScreen() {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
+  };
+
+  // Systems over screens: Load Lookbook outfit back into Studio
+  const handleOpenInStudio = (outfit: SavedOutfit) => {
+    setActiveTab('dress_me');
+    if (outfit.accessoriesId) setLayoutRows(4);
+    else if (outfit.shoesId) setLayoutRows(3);
+    else setLayoutRows(2);
+
+    if (outfit.topId) {
+      const idx = tops.findIndex((i) => i.id === outfit.topId);
+      if (idx !== -1) setTopIdx(idx);
+    }
+    if (outfit.bottomId) {
+      const idx = bottoms.findIndex((i) => i.id === outfit.bottomId);
+      if (idx !== -1) setBottomIdx(idx);
+    }
+    if (outfit.shoesId) {
+      const idx = shoes.findIndex((i) => i.id === outfit.shoesId);
+      if (idx !== -1) setShoesIdx(idx);
+    }
+    if (outfit.accessoriesId) {
+      const idx = accessories.findIndex((i) => i.id === outfit.accessoriesId);
+      if (idx !== -1) setAccIdx(idx);
+    }
+    showToast({ message: `Loaded "${outfit.name}" into Studio`, type: 'info' });
   };
 
   // Dynamic row heights based on layout
@@ -307,273 +359,331 @@ export default function FitGeneratorScreen() {
     };
   };
 
+  const place = getLocationLabel(currentLocation);
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Top Header */}
-        <View style={styles.topHeader}>
-          <PressableScale onPress={handleReset} style={styles.iconBtn}>
-            <RotateCcw size={19} color={Colors.textPrimary} />
-          </PressableScale>
-
-          <Text style={styles.screenTitle}>Fit Studio</Text>
-
-          <PressableScale
-            onPress={() => setFilterModalVisible(true)}
-            style={styles.iconBtn}
-          >
-            <MoreVertical size={20} color={Colors.textPrimary} />
-          </PressableScale>
-        </View>
+        {/* Top Header — Standard Warm Atelier typography & global location sync */}
+        <FadeSlideIn delay={0} fromY={-8}>
+          <View style={styles.topHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.screenTitle}>Fit Studio</Text>
+              <Text style={styles.screenSubtitle}>Ready to wear at {place}</Text>
+            </View>
+            <LiquidGlassLocationSwitch
+              currentLocation={currentLocation}
+              onChange={setCurrentLocation}
+            />
+          </View>
+        </FadeSlideIn>
 
         {/* Sub-Tabs: Dress me, Lookbook, Wear Log */}
-        <View style={styles.subTabsContainer}>
-          <PressableScale
-            onPress={() => setActiveTab('dress_me')}
-            style={[styles.subTab, activeTab === 'dress_me' && styles.subTabActive]}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                activeTab === 'dress_me' && styles.subTabTextActive,
-              ]}
+        <FadeSlideIn delay={30} fromY={6}>
+          <View style={styles.subTabsContainer}>
+            <PressableScale
+              onPress={() => setActiveTab('dress_me')}
+              style={[styles.subTab, activeTab === 'dress_me' && styles.subTabActive]}
             >
-              Dress Me
-            </Text>
-            {activeTab === 'dress_me' && <View style={styles.activeTabIndicator} />}
-          </PressableScale>
+              <Text
+                style={[
+                  styles.subTabText,
+                  activeTab === 'dress_me' && styles.subTabTextActive,
+                ]}
+              >
+                Dress Me
+              </Text>
+              {activeTab === 'dress_me' && <View style={styles.activeTabIndicator} />}
+            </PressableScale>
 
-          <PressableScale
-            onPress={() => setActiveTab('lookbook')}
-            style={[styles.subTab, activeTab === 'lookbook' && styles.subTabActive]}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                activeTab === 'lookbook' && styles.subTabTextActive,
-              ]}
+            <PressableScale
+              onPress={() => setActiveTab('lookbook')}
+              style={[styles.subTab, activeTab === 'lookbook' && styles.subTabActive]}
             >
-              Lookbook ({savedOutfits.length})
-            </Text>
-            {activeTab === 'lookbook' && <View style={styles.activeTabIndicator} />}
-          </PressableScale>
+              <Text
+                style={[
+                  styles.subTabText,
+                  activeTab === 'lookbook' && styles.subTabTextActive,
+                ]}
+              >
+                Lookbook ({savedOutfits.length})
+              </Text>
+              {activeTab === 'lookbook' && <View style={styles.activeTabIndicator} />}
+            </PressableScale>
 
-          <PressableScale
-            onPress={() => setActiveTab('wear_log')}
-            style={[styles.subTab, activeTab === 'wear_log' && styles.subTabActive]}
-          >
-            <Text
-              style={[
-                styles.subTabText,
-                activeTab === 'wear_log' && styles.subTabTextActive,
-              ]}
+            <PressableScale
+              onPress={() => setActiveTab('wear_log')}
+              style={[styles.subTab, activeTab === 'wear_log' && styles.subTabActive]}
             >
-              Wear Log
-            </Text>
-            {activeTab === 'wear_log' && <View style={styles.activeTabIndicator} />}
-          </PressableScale>
-        </View>
+              <Text
+                style={[
+                  styles.subTabText,
+                  activeTab === 'wear_log' && styles.subTabTextActive,
+                ]}
+              >
+                Wear Log ({wearHistory.length})
+              </Text>
+              {activeTab === 'wear_log' && <View style={styles.activeTabIndicator} />}
+            </PressableScale>
+          </View>
+        </FadeSlideIn>
 
         {/* ─── TAB 1: DRESS ME (Interactive Canvas) ───────────────────── */}
         {activeTab === 'dress_me' && (
           <View style={{ flex: 1 }}>
-            {/* Dual Action Bar: Filter button, Save to Lookbook, Wear Today */}
-            <View style={styles.actionControlsBar}>
-              <PressableScale
-                onPress={() => setFilterModalVisible(true)}
-                scaleTo={0.92}
-                style={styles.filterSquareBtn}
-              >
-                <SlidersHorizontal size={18} color="#FFFFFF" />
-              </PressableScale>
-
-              <View style={styles.actionBtnGroup}>
+            {items.length === 0 ? (
+              <View style={styles.emptyStudioState}>
+                <View style={styles.emptyStudioIconWrap}>
+                  <Shirt size={44} color={Colors.accent} strokeWidth={1.8} />
+                </View>
+                <Text style={styles.emptyStudioTitle}>Closet is Empty</Text>
+                <Text style={styles.emptyStudioSub}>
+                  Add clothes to your closet first to start rolling and styling outfits.
+                </Text>
                 <PressableScale
-                  onPress={handleOpenSaveModal}
+                  onPress={() => navigation.navigate('Add', { editItem: undefined })}
                   scaleTo={0.94}
-                  style={styles.saveLookbookBtn}
+                  style={styles.emptyStudioBtn}
                 >
-                  <Bookmark size={14} color={Colors.textPrimary} />
-                  <Text style={styles.saveLookbookText}>Save Fit</Text>
-                </PressableScale>
-
-                <PressableScale
-                  onPress={handleWearToday}
-                  scaleTo={0.94}
-                  style={styles.wearTodayBtn}
-                >
-                  <Check size={14} color="#FFFFFF" strokeWidth={2.8} />
-                  <Text style={styles.wearTodayBtnText}>Wear Today</Text>
+                  <Text style={styles.emptyStudioBtnText}>+ Add Clothes</Text>
                 </PressableScale>
               </View>
-            </View>
+            ) : (
+              <>
+                {/* Intent & Impeccable: Inline Scannable Studio Toolbar (Zero Hidden Modal) */}
+                <FadeSlideIn delay={50} fromY={6}>
+                  <View style={styles.studioToolbar}>
+                    {/* Layer Count Segmented Pills */}
+                    <View style={styles.layerPillWrap}>
+                      {([2, 3, 4] as LayoutRowsType[]).map((r) => {
+                        const active = layoutRows === r;
+                        return (
+                          <TouchableOpacity
+                            key={r}
+                            onPress={() => setLayoutRows(r)}
+                            style={[styles.layerPill, active && styles.layerPillActive]}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={[
+                                styles.layerPillText,
+                                active && styles.layerPillTextActive,
+                              ]}
+                            >
+                              {r}P
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-            {/* Cardless Outfit Canvas */}
-            <ScrollView
-              style={styles.canvasScroll}
-              contentContainerStyle={[
-                styles.canvasContent,
-                { paddingBottom: insets.bottom + 160 },
-              ]}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-            >
-              {/* Row 1: Tops */}
-              <OutfitTierSeparator
-                category="tops"
-                label="TOPS & OUTERWEAR"
-                activeItem={currentSelection.top}
-                isLocked={lockTop}
-                itemCount={tops.length}
-                currentIndex={topIdx + 1}
-              />
-              <FadeSlideIn delay={30} fromY={6}>
-                <OutfitSwiperRow
-                  items={tops}
-                  selectedIndex={topIdx}
-                  onSelectIndex={setTopIdx}
-                  isLocked={lockTop}
-                  onToggleLock={() => setLockTop(!lockTop)}
-                  rowHeight={rowHeights.top}
-                  scrollRef={topListRef}
-                  category="tops"
-                />
-              </FadeSlideIn>
+                    {/* Filter Toggle Chips */}
+                    <TouchableOpacity
+                      onPress={() => setCleanOnly(!cleanOnly)}
+                      activeOpacity={0.8}
+                      style={[styles.filterChip, cleanOnly && styles.filterChipActive]}
+                    >
+                      <View
+                        style={[
+                          styles.filterChipDot,
+                          { backgroundColor: cleanOnly ? Colors.statusClean : Colors.textTertiary },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          cleanOnly && styles.filterChipTextActive,
+                        ]}
+                      >
+                        Clean Only
+                      </Text>
+                    </TouchableOpacity>
 
-              {/* Row 2: Bottoms */}
-              <OutfitTierSeparator
-                category="bottoms"
-                label="BOTTOMS"
-                activeItem={currentSelection.bottom}
-                isLocked={lockBottom}
-                itemCount={bottoms.length}
-                currentIndex={bottomIdx + 1}
-              />
-              <FadeSlideIn delay={60} fromY={6}>
-                <OutfitSwiperRow
-                  items={bottoms}
-                  selectedIndex={bottomIdx}
-                  onSelectIndex={setBottomIdx}
-                  isLocked={lockBottom}
-                  onToggleLock={() => setLockBottom(!lockBottom)}
-                  rowHeight={rowHeights.bottom}
-                  scrollRef={bottomListRef}
-                  category="bottoms"
-                />
-              </FadeSlideIn>
+                    <TouchableOpacity
+                      onPress={() => setUniformOnly(!uniformOnly)}
+                      activeOpacity={0.8}
+                      style={[styles.filterChip, uniformOnly && styles.filterChipActive]}
+                    >
+                      <Shirt
+                        size={12}
+                        color={uniformOnly ? Colors.locBatangas : Colors.textSecondary}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          uniformOnly && { color: Colors.locBatangas, fontWeight: '700' },
+                        ]}
+                      >
+                        Uniform
+                      </Text>
+                    </TouchableOpacity>
 
-              {/* Row 3: Footwear (if 3 or 4 rows) */}
-              {layoutRows >= 3 && (
-                <>
+                    {/* Contextual Reset Button */}
+                    {showResetBtn && (
+                      <TouchableOpacity
+                        onPress={handleReset}
+                        activeOpacity={0.8}
+                        style={styles.resetChip}
+                      >
+                        <RotateCcw size={11} color={Colors.textSecondary} />
+                        <Text style={styles.resetChipText}>Reset</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </FadeSlideIn>
+
+                {/* Cardless Outfit Canvas */}
+                <ScrollView
+                  style={styles.canvasScroll}
+                  contentContainerStyle={[
+                    styles.canvasContent,
+                    { paddingBottom: insets.bottom + 170 },
+                  ]}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
+                  {/* Row 1: Tops */}
                   <OutfitTierSeparator
-                    category="footwear"
-                    label="FOOTWEAR"
-                    activeItem={currentSelection.shoe}
-                    isLocked={lockShoes}
-                    itemCount={shoes.length}
-                    currentIndex={shoesIdx + 1}
+                    category="tops"
+                    label="TOPS & OUTERWEAR"
+                    activeItem={currentSelection.top}
+                    isLocked={lockTop}
+                    itemCount={tops.length}
+                    currentIndex={tops.length > 0 ? topIdx + 1 : 0}
                   />
-                  <FadeSlideIn delay={90} fromY={6}>
+                  <FadeSlideIn delay={30} fromY={6}>
                     <OutfitSwiperRow
-                      items={shoes}
-                      selectedIndex={shoesIdx}
-                      onSelectIndex={setShoesIdx}
-                      isLocked={lockShoes}
-                      onToggleLock={() => setLockShoes(!lockShoes)}
-                      rowHeight={rowHeights.shoes}
-                      scrollRef={shoesListRef}
-                      category="footwear"
+                      items={tops}
+                      selectedIndex={topIdx}
+                      onSelectIndex={setTopIdx}
+                      isLocked={lockTop}
+                      onToggleLock={() => setLockTop(!lockTop)}
+                      rowHeight={rowHeights.top}
+                      scrollRef={topListRef}
+                      category="tops"
                     />
                   </FadeSlideIn>
-                </>
-              )}
 
-              {/* Row 4: Bags & Accessories (if 4 rows) */}
-              {layoutRows === 4 && (
-                <>
+                  {/* Row 2: Bottoms */}
                   <OutfitTierSeparator
-                    category="accessories"
-                    label="ACCESSORIES"
-                    activeItem={currentSelection.acc}
-                    isLocked={lockAcc}
-                    itemCount={accessories.length}
-                    currentIndex={accIdx + 1}
+                    category="bottoms"
+                    label="BOTTOMS"
+                    activeItem={currentSelection.bottom}
+                    isLocked={lockBottom}
+                    itemCount={bottoms.length}
+                    currentIndex={bottoms.length > 0 ? bottomIdx + 1 : 0}
                   />
-                  <FadeSlideIn delay={120} fromY={6}>
+                  <FadeSlideIn delay={60} fromY={6}>
                     <OutfitSwiperRow
-                      items={accessories}
-                      selectedIndex={accIdx}
-                      onSelectIndex={setAccIdx}
-                      isLocked={lockAcc}
-                      onToggleLock={() => setLockAcc(!lockAcc)}
-                      rowHeight={rowHeights.acc}
-                      scrollRef={accListRef}
-                      category="accessories"
+                      items={bottoms}
+                      selectedIndex={bottomIdx}
+                      onSelectIndex={setBottomIdx}
+                      isLocked={lockBottom}
+                      onToggleLock={() => setLockBottom(!lockBottom)}
+                      rowHeight={rowHeights.bottom}
+                      scrollRef={bottomListRef}
+                      category="bottoms"
                     />
                   </FadeSlideIn>
-                </>
-              )}
-            </ScrollView>
 
-            {/* Floating Bottom Control Dock: Layout Switchers & Dice Shuffle */}
-            <View
-              pointerEvents="box-none"
-              style={[
-                styles.dockWrapper,
-                { bottom: insets.bottom + 98 },
-              ]}
-            >
-              <View style={styles.floatingDock}>
-                {/* 2-row toggle */}
-                <PressableScale
-                  onPress={() => setLayoutRows(2)}
-                  scaleTo={0.92}
+                  {/* Row 3: Footwear (if 3 or 4 rows) */}
+                  {layoutRows >= 3 && (
+                    <>
+                      <OutfitTierSeparator
+                        category="footwear"
+                        label="FOOTWEAR"
+                        activeItem={currentSelection.shoe}
+                        isLocked={lockShoes}
+                        itemCount={shoes.length}
+                        currentIndex={shoes.length > 0 ? shoesIdx + 1 : 0}
+                      />
+                      <FadeSlideIn delay={90} fromY={6}>
+                        <OutfitSwiperRow
+                          items={shoes}
+                          selectedIndex={shoesIdx}
+                          onSelectIndex={setShoesIdx}
+                          isLocked={lockShoes}
+                          onToggleLock={() => setLockShoes(!lockShoes)}
+                          rowHeight={rowHeights.shoes}
+                          scrollRef={shoesListRef}
+                          category="footwear"
+                        />
+                      </FadeSlideIn>
+                    </>
+                  )}
+
+                  {/* Row 4: Bags & Accessories (if 4 rows) */}
+                  {layoutRows === 4 && (
+                    <>
+                      <OutfitTierSeparator
+                        category="accessories"
+                        label="ACCESSORIES"
+                        activeItem={currentSelection.acc}
+                        isLocked={lockAcc}
+                        itemCount={accessories.length}
+                        currentIndex={accessories.length > 0 ? accIdx + 1 : 0}
+                      />
+                      <FadeSlideIn delay={120} fromY={6}>
+                        <OutfitSwiperRow
+                          items={accessories}
+                          selectedIndex={accIdx}
+                          onSelectIndex={setAccIdx}
+                          isLocked={lockAcc}
+                          onToggleLock={() => setLockAcc(!lockAcc)}
+                          rowHeight={rowHeights.acc}
+                          scrollRef={accListRef}
+                          category="accessories"
+                        />
+                      </FadeSlideIn>
+                    </>
+                  )}
+                </ScrollView>
+
+                {/* Impeccable: Consolidated Thumb-Zone Studio Dock */}
+                <View
+                  pointerEvents="box-none"
                   style={[
-                    styles.layoutBtn,
-                    layoutRows === 2 && styles.layoutBtnActive,
+                    styles.dockWrapper,
+                    { bottom: insets.bottom + 88 },
                   ]}
                 >
-                  <LayoutRowsIcon rows={2} active={layoutRows === 2} size={18} />
-                </PressableScale>
+                  <View style={styles.floatingDock}>
+                    {/* 1. Kinetic Shuffle Dice */}
+                    <PressableScale
+                      onPress={handleShuffle}
+                      scaleTo={0.92}
+                      style={styles.dockDiceBtn}
+                    >
+                      <Animated.View style={{ transform: [{ rotate: diceSpin }] }}>
+                        <Dice size={19} color="#FFFFFF" weight="bold" />
+                      </Animated.View>
+                      <Text style={styles.dockDiceText}>Roll</Text>
+                    </PressableScale>
 
-                {/* 3-row toggle */}
-                <PressableScale
-                  onPress={() => setLayoutRows(3)}
-                  scaleTo={0.92}
-                  style={[
-                    styles.layoutBtn,
-                    layoutRows === 3 && styles.layoutBtnActive,
-                  ]}
-                >
-                  <LayoutRowsIcon rows={3} active={layoutRows === 3} size={18} />
-                </PressableScale>
+                    {/* 2. Save Fit to Lookbook */}
+                    <PressableScale
+                      onPress={handleOpenSaveModal}
+                      scaleTo={0.94}
+                      style={styles.dockSaveBtn}
+                    >
+                      <Bookmark size={14} color={Colors.textPrimary} />
+                      <Text style={styles.dockSaveText}>Save</Text>
+                    </PressableScale>
 
-                {/* 4-row toggle */}
-                <PressableScale
-                  onPress={() => setLayoutRows(4)}
-                  scaleTo={0.92}
-                  style={[
-                    styles.layoutBtn,
-                    layoutRows === 4 && styles.layoutBtnActive,
-                  ]}
-                >
-                  <LayoutRowsIcon rows={4} active={layoutRows === 4} size={18} />
-                </PressableScale>
-
-                <View style={styles.dockDivider} />
-
-                {/* Kinetic Shuffle Dice Button */}
-                <PressableScale
-                  onPress={handleShuffle}
-                  scaleTo={0.9}
-                  style={styles.diceButton}
-                >
-                  <Animated.View style={{ transform: [{ rotate: diceSpin }] }}>
-                    <Dice size={20} color="#FFFFFF" weight="bold" />
-                  </Animated.View>
-                </PressableScale>
-              </View>
-            </View>
+                    {/* 3. Wear Today (Primary CTA) */}
+                    <PressableScale
+                      onPress={handleWearToday}
+                      scaleTo={0.94}
+                      style={styles.dockWearBtn}
+                    >
+                      <Check size={14} color="#FFFFFF" strokeWidth={2.8} />
+                      <Text style={styles.dockWearText}>Wear Today</Text>
+                    </PressableScale>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
         )}
 
@@ -591,7 +701,7 @@ export default function FitGeneratorScreen() {
                 <Bookmark size={40} color={Colors.textTertiary} />
                 <Text style={styles.emptyLookbookTitle}>Lookbook is Empty</Text>
                 <Text style={styles.emptyLookbookSub}>
-                  Roll outfits in "Dress Me" and tap "Save Fit" to bookmark your favorite looks.
+                  Roll outfits in "Dress Me" and tap "Save" to bookmark your favorite looks.
                 </Text>
               </View>
             ) : (
@@ -600,15 +710,19 @@ export default function FitGeneratorScreen() {
                 const top = items.find((i) => i.id === outfit.topId);
                 const bottom = items.find((i) => i.id === outfit.bottomId);
                 const shoe = items.find((i) => i.id === outfit.shoesId);
+                const acc = items.find((i) => i.id === outfit.accessoriesId);
 
                 return (
                   <View key={outfit.id} style={styles.lookbookCard}>
                     <View style={styles.specular} />
 
-                    {/* Card Top: Title & Delete */}
+                    {/* Card Top: Title, Last Worn, & Delete */}
                     <View style={styles.lookbookHeader}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.lookbookTitle}>{outfit.name}</Text>
+                        <Text style={styles.lookbookWornMeta}>
+                          {formatRelativeTime(outfit.lastWornAt)}
+                        </Text>
                         <View style={styles.tagWrap}>
                           {outfit.tags.map((t) => (
                             <View key={t} style={styles.lookbookTagPill}>
@@ -621,14 +735,15 @@ export default function FitGeneratorScreen() {
                       <TouchableOpacity
                         onPress={() => deleteSavedOutfit(outfit.id)}
                         style={styles.trashBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Trash2 size={16} color={Colors.textTertiary} />
                       </TouchableOpacity>
                     </View>
 
-                    {/* Pieces collage */}
+                    {/* Pieces collage — All 4 pieces supported */}
                     <View style={styles.collageRow}>
-                      {[top, bottom, shoe].filter(Boolean).map((piece, idx) => (
+                      {[top, bottom, shoe, acc].filter(Boolean).map((piece, idx) => (
                         <View key={piece?.id ?? idx} style={styles.collageThumb}>
                           {piece?.imageUrl ? (
                             <Image
@@ -639,7 +754,7 @@ export default function FitGeneratorScreen() {
                           ) : (
                             <CategoryIcon
                               category={piece?.category ?? 'tops'}
-                              size={24}
+                              size={22}
                               color={Colors.textSecondary}
                             />
                           )}
@@ -647,7 +762,7 @@ export default function FitGeneratorScreen() {
                       ))}
                     </View>
 
-                    {/* Footer: Live Readiness Badge + Wear button */}
+                    {/* Footer: Live Readiness Badge + Open in Studio + Wear button */}
                     <View style={styles.lookbookFooter}>
                       <View
                         style={[
@@ -659,21 +774,31 @@ export default function FitGeneratorScreen() {
                         ]}
                       >
                         <View style={[styles.availDot, { backgroundColor: avail.color }]} />
-                        <Text style={[styles.availText, { color: avail.color }]}>
+                        <Text style={[styles.availText, { color: avail.color }]} numberOfLines={1}>
                           {avail.label}
                         </Text>
                       </View>
 
-                      <PressableScale
-                        scaleTo={0.94}
-                        onPress={() => {
-                          const ids = [outfit.topId, outfit.bottomId, outfit.shoesId, outfit.accessoriesId].filter(Boolean) as string[];
-                          logOutfitWorn(ids, outfit.name);
-                        }}
-                        style={styles.wearLookbookBtn}
-                      >
-                        <Text style={styles.wearLookbookBtnText}>Wear This</Text>
-                      </PressableScale>
+                      <View style={styles.lookbookActionGroup}>
+                        <PressableScale
+                          scaleTo={0.94}
+                          onPress={() => handleOpenInStudio(outfit)}
+                          style={styles.openInStudioBtn}
+                        >
+                          <Text style={styles.openInStudioText}>Open</Text>
+                        </PressableScale>
+
+                        <PressableScale
+                          scaleTo={0.94}
+                          onPress={() => {
+                            const ids = [outfit.topId, outfit.bottomId, outfit.shoesId, outfit.accessoriesId].filter(Boolean) as string[];
+                            logOutfitWorn(ids, outfit.name, outfit.id);
+                          }}
+                          style={styles.wearLookbookBtn}
+                        >
+                          <Text style={styles.wearLookbookBtnText}>Wear This</Text>
+                        </PressableScale>
+                      </View>
                     </View>
                   </View>
                 );
@@ -682,7 +807,7 @@ export default function FitGeneratorScreen() {
           </ScrollView>
         )}
 
-        {/* ─── TAB 3: WEAR LOG (Chronological Timeline) ──────────────── */}
+        {/* ─── TAB 3: WEAR LOG (Chronological Timeline with Delete) ───── */}
         {activeTab === 'wear_log' && (
           <ScrollView
             contentContainerStyle={[
@@ -718,10 +843,19 @@ export default function FitGeneratorScreen() {
                         <Text style={styles.wearLogDate}>{dateFormatted}</Text>
                       </View>
 
-                      <View style={styles.wearLogLocBadge}>
-                        <Text style={styles.wearLogLocText}>
-                          {getLocationLabel(log.location)}
-                        </Text>
+                      <View style={styles.wearLogRight}>
+                        <View style={styles.wearLogLocBadge}>
+                          <Text style={styles.wearLogLocText}>
+                            {getLocationLabel(log.location)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => deleteWearLog(log.id)}
+                          style={styles.wearLogTrash}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Trash2 size={14} color={Colors.textTertiary} />
+                        </TouchableOpacity>
                       </View>
                     </View>
 
@@ -805,66 +939,6 @@ export default function FitGeneratorScreen() {
             </View>
           </View>
         </Modal>
-
-        {/* ─── FILTER SETTINGS MODAL ─────────────────────────────────── */}
-        <Modal
-          visible={filterModalVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => setFilterModalVisible(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Wardrobe Filters</Text>
-                <PressableScale onPress={() => setFilterModalVisible(false)}>
-                  <X size={18} color={Colors.textPrimary} />
-                </PressableScale>
-              </View>
-
-              <Text style={styles.filterSectionLabel}>CLOSET LOCATION</Text>
-              <LiquidGlassLocationSwitch
-                currentLocation={selectedLoc}
-                onChange={(loc) => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                  setSelectedLoc(loc);
-                }}
-                style={{ width: '100%', marginBottom: 16 }}
-              />
-
-              <View style={styles.filterToggleRow}>
-                <View>
-                  <Text style={styles.toggleLabel}>Clean Items Only</Text>
-                  <Text style={styles.toggleSub}>Hide clothes in laundry or worn</Text>
-                </View>
-                <Switch
-                  value={cleanOnly}
-                  onValueChange={setCleanOnly}
-                  trackColor={{ false: Colors.bgDeep, true: Colors.accent }}
-                />
-              </View>
-
-              <View style={styles.filterToggleRow}>
-                <View>
-                  <Text style={styles.toggleLabel}>Uniform White Tees</Text>
-                  <Text style={styles.toggleSub}>Match school uniform code</Text>
-                </View>
-                <Switch
-                  value={uniformOnly}
-                  onValueChange={setUniformOnly}
-                  trackColor={{ false: Colors.bgDeep, true: Colors.accent }}
-                />
-              </View>
-
-              <PressableScale
-                onPress={() => setFilterModalVisible(false)}
-                style={styles.modalDoneBtn}
-              >
-                <Text style={styles.modalDoneText}>Done</Text>
-              </PressableScale>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -882,24 +956,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 10,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   screenTitle: {
-    fontSize: 17,
-    fontWeight: '700',
     color: Colors.textPrimary,
-    letterSpacing: -0.3,
+    ...Typography.title1,
   },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
+  screenSubtitle: {
+    color: Colors.textTertiary,
+    fontSize: 12.5,
+    marginTop: 2,
   },
   subTabsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderGlass,
   },
@@ -927,74 +999,93 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.textPrimary,
     borderRadius: 1,
   },
-  actionControlsBar: {
+  studioToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingTop: 10,
-    paddingBottom: 4,
-  },
-  filterSquareBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: Radii.md,
-    backgroundColor: Colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionBtnGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: 10,
     gap: 8,
   },
-  saveLookbookBtn: {
+  layerPillWrap: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(20, 20, 19, 0.05)',
+    borderRadius: Radii.pill,
+    padding: 2,
+  },
+  layerPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+  },
+  layerPillActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  layerPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textTertiary,
+  },
+  layerPillTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: Radii.pill,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  saveLookbookText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: Colors.textPrimary,
+  filterChipActive: {
+    borderColor: 'rgba(20, 20, 19, 0.2)',
   },
-  wearTodayBtn: {
+  filterChipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  filterChipText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: '600',
+  },
+  resetChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: Radii.pill,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 5,
-    elevation: 2,
+    backgroundColor: Colors.bgSubtle,
+    marginLeft: 'auto',
   },
-  wearTodayBtnText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
+  resetChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   canvasScroll: {
     flex: 1,
   },
   canvasContent: {
-    paddingTop: 6,
-    paddingBottom: 140,
+    paddingTop: 4,
+    paddingBottom: 160,
     alignItems: 'center',
   },
   dockWrapper: {
     position: 'absolute',
-    bottom: 98,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -1010,40 +1101,103 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 14,
-    elevation: 6,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+    gap: 8,
+  },
+  dockDiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+  },
+  dockDiceText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  dockSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: Radii.pill,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
-  layoutBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
+  dockSaveText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  dockWearBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 2,
-  },
-  layoutBtnActive: {
-    backgroundColor: 'rgba(20, 20, 19, 0.08)',
-  },
-  dockDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: Colors.borderGlass,
-    marginHorizontal: 8,
-  },
-  diceButton: {
-    width: 40,
-    height: 38,
-    borderRadius: 12,
+    gap: 5,
     backgroundColor: Colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radii.pill,
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  dockWearText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyStudioState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xxl,
+    gap: 12,
+  },
+  emptyStudioIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.bgSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyStudioTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  emptyStudioSub: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  emptyStudioBtn: {
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: Radii.pill,
+    marginTop: 8,
+  },
+  emptyStudioBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   lookbookScroll: {
     paddingHorizontal: Spacing.lg,
@@ -1101,10 +1255,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
   },
+  lookbookWornMeta: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
   tagWrap: {
     flexDirection: 'row',
     gap: 4,
-    marginTop: 4,
+    marginTop: 5,
   },
   lookbookTagPill: {
     backgroundColor: Colors.bgSubtle,
@@ -1143,7 +1302,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 4,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.borderGlass,
   },
@@ -1151,10 +1310,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.pill,
     borderWidth: 1,
+    maxWidth: '50%',
   },
   availDot: {
     width: 6,
@@ -1162,7 +1322,25 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   availText: {
-    fontSize: 11,
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  lookbookActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  openInStudioBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radii.pill,
+  },
+  openInStudioText: {
+    color: Colors.textPrimary,
+    fontSize: 11.5,
     fontWeight: '600',
   },
   wearLookbookBtn: {
@@ -1205,6 +1383,11 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     marginTop: 1,
   },
+  wearLogRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   wearLogLocBadge: {
     backgroundColor: Colors.bgSubtle,
     paddingHorizontal: 8,
@@ -1215,6 +1398,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 10,
     fontWeight: '600',
+  },
+  wearLogTrash: {
+    padding: 2,
   },
   wearLogThumbsRow: {
     flexDirection: 'row',
@@ -1302,50 +1488,6 @@ const styles = StyleSheet.create({
   tagPresetTextActive: {
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  modalLocRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  modalLocBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.bgSubtle,
-  },
-  modalLocBtnActive: {
-    backgroundColor: Colors.accent,
-  },
-  modalLocText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  modalLocTextActive: {
-    color: '#FFFFFF',
-  },
-  filterToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderGlass,
-  },
-  toggleLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  toggleSub: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    marginTop: 2,
   },
   modalDoneBtn: {
     marginTop: 18,

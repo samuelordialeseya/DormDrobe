@@ -92,7 +92,12 @@ export default function ClosetScreen() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [uniformOnly, setUniformOnly] = useState(false);
   const [showAllPlaces, setShowAllPlaces] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ClothingItem | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  const selectedItem = useMemo(
+    () => items.find((it) => it.id === selectedItemId) ?? null,
+    [items, selectedItemId]
+  );
 
   // Pack Bag checklist session
   const [packFilter, setPackFilter] = useState<PackFilter>('clean');
@@ -414,7 +419,7 @@ export default function ClosetScreen() {
                 {items.length} pieces · {zoneItems.bag.length} in bag
               </Text>
             </View>
-            <PressableScale onPress={() => navigation.navigate('Add')} scaleTo={0.92}>
+            <PressableScale onPress={() => navigation.navigate('Add', { editItem: undefined })} scaleTo={0.92}>
               <View style={styles.addBtn}>
                 <Plus size={13} color="#FFFFFF" strokeWidth={2.4} />
                 <Text style={styles.addBtnText}>Add</Text>
@@ -613,7 +618,7 @@ export default function ClosetScreen() {
             <ClothingCard
               item={item}
               delay={Math.min(index * 30, 200)}
-              onPress={() => setSelectedItem(item)}
+              onPress={() => setSelectedItemId(item.id)}
               showQuickAction={closetTab !== 'bag'}
               hideLocation={hideLocationBadge}
             />
@@ -625,7 +630,9 @@ export default function ClosetScreen() {
             <FadeSlideIn delay={150}>
               <View style={styles.empty}>
                 <View style={styles.emptyIconBox}>
-                  {closetTab === 'bag' ? (
+                  {items.length === 0 ? (
+                    <Shirt size={44} color={Colors.accent} strokeWidth={1.6} />
+                  ) : closetTab === 'bag' ? (
                     <Luggage size={44} color={Colors.textTertiary} strokeWidth={1.4} />
                   ) : closetTab === 'laundry' ? (
                     <Waves size={44} color={Colors.textTertiary} strokeWidth={1.4} />
@@ -634,7 +641,21 @@ export default function ClosetScreen() {
                   )}
                 </View>
 
-                {hasActiveFilters ? (
+                {items.length === 0 ? (
+                  <>
+                    <Text style={styles.emptyTitle}>Your closet is empty</Text>
+                    <Text style={styles.emptyText}>
+                      Start cataloging your clothes to build outfits and pack smart between locations.
+                    </Text>
+                    <PressableScale
+                      onPress={() => navigation.navigate('Add', { editItem: undefined })}
+                      scaleTo={0.94}
+                      style={[styles.emptyBtn, { backgroundColor: Colors.accent }]}
+                    >
+                      <Text style={[styles.emptyBtnText, { color: '#FFFFFF' }]}>+ Add Your First Clothes</Text>
+                    </PressableScale>
+                  </>
+                ) : hasActiveFilters ? (
                   <>
                     <Text style={styles.emptyTitle}>No matches</Text>
                     <Text style={styles.emptyText}>Nothing here fits your search or filters</Text>
@@ -689,8 +710,11 @@ export default function ClosetScreen() {
         <GarmentDetailSheet
           item={selectedItem}
           visible={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
-          onEdit={(it) => navigation.navigate('Add', { editItem: it })}
+          onClose={() => setSelectedItemId(null)}
+          onEdit={(it) => {
+            setSelectedItemId(null);
+            navigation.navigate('Add', { editItem: it });
+          }}
         />
 
         {unpackModal}

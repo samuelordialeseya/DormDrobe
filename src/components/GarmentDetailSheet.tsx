@@ -33,6 +33,7 @@ import {
   Edit3,
   Clock,
   Check,
+  Copy,
 } from './AppIcons';
 
 interface Props {
@@ -76,7 +77,7 @@ function formatRelativeTime(isoString: string | null): string {
 }
 
 export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: Props) {
-  const { updateItem, deleteItem, addItem, showToast, getLocationLabel } = useWardrobe();
+  const { updateItem, deleteItem, duplicateItem, addItem, showToast, getLocationLabel } = useWardrobe();
 
   // Bottom sheet spring animations
   const translateY = useRef(new Animated.Value(450)).current;
@@ -124,6 +125,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
   const handleStatusChange = (newStatus: Status) => {
     if (!item) return;
     const oldStatus = item.status;
+    const prevLastWornAt = item.lastWornAt;
     updateItem(item.id, {
       status: newStatus,
       ...(newStatus === 'worn' ? { lastWornAt: new Date().toISOString() } : {}),
@@ -133,7 +135,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
       type: 'success',
       action: {
         label: 'Undo',
-        onPress: () => updateItem(item.id, { status: oldStatus }),
+        onPress: () => updateItem(item.id, { status: oldStatus, lastWornAt: prevLastWornAt }),
       },
     });
   };
@@ -159,32 +161,26 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
     showToast({ message: 'Notes updated', type: 'info' });
   };
 
+  const handleDuplicate = () => {
+    if (!item) return;
+    duplicateItem(item.id);
+    onClose();
+  };
+
   const handleDelete = () => {
     if (!item) return;
-    Alert.alert(
-      'Remove Garment',
-      `Are you sure you want to remove "${item.name}" from your wardrobe?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            const deletedCopy = { ...item };
-            deleteItem(item.id);
-            onClose();
-            showToast({
-              message: `Removed ${deletedCopy.name}`,
-              type: 'info',
-              action: {
-                label: 'Undo',
-                onPress: () => addItem(deletedCopy),
-              },
-            });
-          },
-        },
-      ],
-    );
+    const deletedCopy = { ...item };
+    const itemId = item.id;
+    onClose();
+    deleteItem(itemId);
+    showToast({
+      message: `Removed ${deletedCopy.name}`,
+      type: 'info',
+      action: {
+        label: 'Undo',
+        onPress: () => addItem(deletedCopy),
+      },
+    });
   };
 
   const swatchColor = COLOR_MAP[item.color.toLowerCase()] ?? '#636366';
@@ -339,9 +335,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                           active && { color: '#FFFFFF', fontWeight: '700' },
                         ]}
                       >
-                        {loc === 'in_transit_bag'
-                          ? 'In Bag'
-                          : getLocationLabel(loc)}
+                        {getLocationLabel(loc)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -416,9 +410,18 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                   style={styles.actionBtnEdit}
                 >
                   <Edit3 size={15} color={Colors.textPrimary} />
-                  <Text style={styles.actionBtnEditText}>Edit Piece</Text>
+                  <Text style={styles.actionBtnEditText}>Edit</Text>
                 </PressableScale>
               )}
+
+              <PressableScale
+                scaleTo={0.96}
+                onPress={handleDuplicate}
+                style={styles.actionBtnDuplicate}
+              >
+                <Copy size={15} color={Colors.textPrimary} />
+                <Text style={styles.actionBtnDuplicateText}>Duplicate</Text>
+              </PressableScale>
 
               <PressableScale
                 scaleTo={0.96}
@@ -732,6 +735,23 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderGlass,
   },
   actionBtnEditText: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  actionBtnDuplicate: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 12,
+    borderRadius: Radii.xl,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  actionBtnDuplicateText: {
     color: Colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',

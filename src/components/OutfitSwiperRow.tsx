@@ -14,6 +14,7 @@ import { ClothingItem, STATUS_COLORS, STATUS_LABELS } from '../types/wardrobe';
 import { Colors, Radii } from '../theme/theme';
 import { CategoryIcon, PushPin } from './AppIcons';
 import PressableScale from './PressableScale';
+import { useWardrobe } from '../context/WardrobeContext';
 
 interface OutfitSwiperRowProps {
   items: ClothingItem[];
@@ -37,6 +38,7 @@ export default function OutfitSwiperRow({
   category,
 }: OutfitSwiperRowProps) {
   const { width } = useWindowDimensions();
+  const { getLocationLabel } = useWardrobe();
   // Default to 390 (standard phone width) or window width if smaller
   const [containerWidth, setContainerWidth] = React.useState(Math.min(width, 390));
 
@@ -75,12 +77,22 @@ export default function OutfitSwiperRow({
   if (items.length === 0) {
     return (
       <View style={[styles.emptyContainer, { height: rowHeight }]}>
-        <CategoryIcon category={category} size={36} color="#D1D1D6" />
+        <CategoryIcon category={category} size={30} color={Colors.textTertiary} />
+        <Text style={styles.emptyCategoryText}>No {category} here</Text>
       </View>
     );
   }
 
   const activeItem = items[selectedIndex] ?? items[0];
+  const locLabel = getLocationLabel(activeItem.location);
+  const compactLoc =
+    activeItem.location === 'in_transit_bag'
+      ? 'Bag'
+      : locLabel === 'Batangas Dorm'
+      ? 'Dorm'
+      : locLabel === 'Calamba Home'
+      ? 'Home'
+      : locLabel;
 
   return (
     <View
@@ -209,11 +221,7 @@ export default function OutfitSwiperRow({
               ]}
             />
             <Text style={styles.metaLocText}>
-              {activeItem.location === 'batangas_dorm'
-                ? 'Dorm'
-                : activeItem.location === 'calamba_home'
-                ? 'Home'
-                : 'Bag'}
+              {compactLoc}
             </Text>
             {activeItem.status !== 'clean' && (
               <Text
@@ -295,6 +303,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.015)',
     borderRadius: 16,
     marginVertical: 4,
+    gap: 6,
+  },
+  emptyCategoryText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: Colors.textTertiary,
   },
   itemWrapper: {
     justifyContent: 'center',

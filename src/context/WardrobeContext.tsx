@@ -122,6 +122,10 @@ interface WardrobeState {
   updateLocationNames: (names: Partial<LocationNames>) => void;
   getLocationLabel: (loc: Location) => string;
   addItem: (item: ClothingItem) => void;
+  /** Add multiple items in one batch (e.g. quantity x3) */
+  addItems: (newItems: ClothingItem[]) => void;
+  /** Duplicate an existing item with an incremented name */
+  duplicateItem: (id: string) => void;
   updateItem: (id: string, patch: Partial<ClothingItem>) => void;
   deleteItem: (id: string) => void;
   /** Batch: move selected items to a target location */
@@ -143,7 +147,13 @@ interface WardrobeState {
   /** Lookbook: remove an outfit */
   deleteSavedOutfit: (id: string) => void;
   /** Outfit History: log that an outfit was worn today */
-  logOutfitWorn: (itemIds: string[], outfitName?: string) => void;
+  logOutfitWorn: (itemIds: string[], outfitName?: string, outfitId?: string) => void;
+  /** Outfit History: delete a specific wear log entry */
+  deleteWearLog: (id: string) => void;
+  /** Reset all items, lookbook, and logs back to default seed data */
+  resetToSeedData: () => Promise<void>;
+  /** Clear all items, lookbook, and logs to test or start completely empty */
+  clearAllData: () => Promise<void>;
   /** Sonner Toast: display a non-blocking toast with optional Undo action */
   showToast: (config: Omit<ToastConfig, 'id'>) => void;
   /** Export all wardrobe data, lookbooks, and logs as a formatted JSON string */
@@ -246,7 +256,26 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         const storedOutfits = await AppStorage.getItem(OUTFITS_KEY);
         if (storedOutfits) {
           try {
-            setSavedOutfits(JSON.parse(storedOutfits));
+            const parsedOutfits: SavedOutfit[] = JSON.parse(storedOutfits);
+            // Auto-repair any legacy mock-* references to real mock item IDs
+            let hadRepairs = false;
+            const repaired = parsedOutfits.map((o) => {
+              let changed = false;
+              let topId = o.topId;
+              let bottomId = o.bottomId;
+              let shoesId = o.shoesId;
+              if (topId === 'mock-1') { topId = '1a'; changed = true; }
+              if (topId === 'mock-2') { topId = '2a'; changed = true; }
+              if (bottomId === 'mock-4') { bottomId = '3b'; changed = true; }
+              if (bottomId === 'mock-5') { bottomId = '3a'; changed = true; }
+              if (shoesId === 'mock-6') { shoesId = '5a'; changed = true; }
+              if (changed) hadRepairs = true;
+              return changed ? { ...o, topId, bottomId, shoesId } : o;
+            });
+            setSavedOutfits(repaired);
+            if (hadRepairs) {
+              persistOutfits(repaired);
+            }
           } catch {
             setSavedOutfits([]);
           }
@@ -256,9 +285,9 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             {
               id: 'outfit-seed-1',
               name: 'Monday White Tee Uniform',
-              topId: 'mock-1',
-              bottomId: 'mock-4',
-              shoesId: 'mock-6',
+              topId: '1a',
+              bottomId: '3b',
+              shoesId: '5a',
               tags: ['uniform', 'campus'],
               createdAt: new Date().toISOString(),
               lastWornAt: null,
@@ -266,9 +295,9 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             {
               id: 'outfit-seed-2',
               name: 'Friday Commute Casual',
-              topId: 'mock-2',
-              bottomId: 'mock-5',
-              shoesId: 'mock-6',
+              topId: '2a',
+              bottomId: '3a',
+              shoesId: '5a',
               tags: ['commute', 'weekend'],
               createdAt: new Date().toISOString(),
               lastWornAt: null,
@@ -307,20 +336,6 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
               }
               return item;
             });
-
-            // Auto-merge any newly added seed items from MOCK_CLOTHING
-            const existingDbIds = new Set(enriched.map((i) => i.id));
-            const existingDbNames = new Set(enriched.map((i) => i.name.toLowerCase()));
-            const missingFromDb = MOCK_CLOTHING.filter(
-              (m) => !existingDbIds.has(m.id) && !existingDbNames.has(m.name.toLowerCase())
-            );
-            if (missingFromDb.length > 0) {
-              enriched.push(...missingFromDb);
-              supabase
-                .from('clothing_items')
-                .insert(missingFromDb.map(toDbItem))
-                .then(() => console.log('[DormDrobe] Inserted new seed items to Supabase'));
-            }
 
             const { items: normalized, changed: hadDrying } = normalizeLegacyStatuses(enriched);
             if (hadDrying) {
@@ -365,17 +380,6 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             }
             return item;
           });
-
-          // Auto-merge any newly added seed items from MOCK_CLOTHING
-          const existingIds = new Set(updated.map((i) => i.id));
-          const existingNames = new Set(updated.map((i) => i.name.toLowerCase()));
-          const missingMockItems = MOCK_CLOTHING.filter(
-            (m) => !existingIds.has(m.id) && !existingNames.has(m.name.toLowerCase())
-          );
-          if (missingMockItems.length > 0) {
-            hasBackfill = true;
-            updated.push(...missingMockItems);
-          }
 
           const { items: normalized, changed: hadDrying } = normalizeLegacyStatuses(updated);
           setItems(normalized);
@@ -422,6 +426,110 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       }
     },
     [persist],
+  );
+
+  const addItems = useCallback(
+    (newItems: ClothingItem[]) => {
+      if (newItems.length === 0) return;
+      setItems((prev) => {
+        const next = [...newItems, ...prev];
+        persist(next);
+        return next;
+      });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .insert(newItems.map(toDbItem))
+          .then(({ error }) => {
+            if (error) console.warn('[DormDrobe] Supabase batch insert error:', error.message);
+          });
+      }
+
+      showToast({
+        message: `Added ${newItems.length} items to wardrobe`,
+        type: 'success',
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            const addedIds = new Set(newItems.map((i) => i.id));
+            setItems((prev) => {
+              const next = prev.filter((i) => !addedIds.has(i.id));
+              persist(next);
+              return next;
+            });
+            if (isSupabaseConfigured) {
+              supabase
+                .from('clothing_items')
+                .delete()
+                .in('id', Array.from(addedIds))
+                .then(() => {});
+            }
+          },
+        },
+      });
+    },
+    [persist, showToast],
+  );
+
+  const duplicateItem = useCallback(
+    (id: string) => {
+      const target = items.find((it) => it.id === id);
+      if (!target) return;
+
+      let newName = target.name;
+      const numMatch = target.name.match(/^(.*?)\s*#(\d+)$/);
+      if (numMatch) {
+        const base = numMatch[1];
+        const nextNum = parseInt(numMatch[2], 10) + 1;
+        newName = `${base} #${nextNum}`;
+      } else {
+        newName = `${target.name} #2`;
+      }
+
+      const duplicate: ClothingItem = {
+        ...target,
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: newName,
+        createdAt: new Date().toISOString(),
+      };
+
+      setItems((prev) => {
+        const next = [duplicate, ...prev];
+        persist(next);
+        return next;
+      });
+
+      if (isSupabaseConfigured) {
+        supabase
+          .from('clothing_items')
+          .insert(toDbItem(duplicate))
+          .then(() => {});
+      }
+
+      showToast({
+        message: `Duplicated as "${newName}"`,
+        type: 'success',
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            setItems((prev) => {
+              const next = prev.filter((it) => it.id !== duplicate.id);
+              persist(next);
+              return next;
+            });
+            if (isSupabaseConfigured) {
+              supabase
+                .from('clothing_items')
+                .delete()
+                .eq('id', duplicate.id)
+                .then(() => {});
+            }
+          },
+        },
+      });
+    },
+    [items, persist, showToast],
   );
 
   const updateItem = useCallback(
@@ -763,9 +871,10 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
   );
 
   const logOutfitWorn = useCallback(
-    (itemIds: string[], outfitName?: string) => {
+    (itemIds: string[], outfitName?: string, outfitId?: string) => {
       const nowIso = new Date().toISOString();
       const previousItems = [...items];
+      const previousOutfits = [...savedOutfits];
 
       // Update garment lastWornAt and mark as worn
       setItems((prev) => {
@@ -778,6 +887,15 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         persist(next);
         return next;
       });
+
+      // Update outfit lastWornAt if an outfitId was passed
+      if (outfitId) {
+        setSavedOutfits((prev) => {
+          const next = prev.map((o) => (o.id === outfitId ? { ...o, lastWornAt: nowIso } : o));
+          persistOutfits(next);
+          return next;
+        });
+      }
 
       if (isSupabaseConfigured) {
         supabase
@@ -810,6 +928,10 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
           onPress: () => {
             setItems(previousItems);
             persist(previousItems);
+            if (outfitId) {
+              setSavedOutfits(previousOutfits);
+              persistOutfits(previousOutfits);
+            }
             setWearHistory((prev) => {
               const reverted = prev.filter((l) => l.id !== logEntry.id);
               persistWearHistory(reverted);
@@ -819,8 +941,83 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         },
       });
     },
-    [items, currentLocation, persist, persistWearHistory, showToast],
+    [items, savedOutfits, currentLocation, persist, persistOutfits, persistWearHistory, showToast],
   );
+
+  const deleteWearLog = useCallback(
+    (id: string) => {
+      const prevLogs = [...wearHistory];
+      const target = wearHistory.find((l) => l.id === id);
+      setWearHistory((prev) => {
+        const next = prev.filter((l) => l.id !== id);
+        persistWearHistory(next);
+        return next;
+      });
+      showToast({
+        message: `Removed ${target?.outfitName || 'wear entry'} from log`,
+        type: 'info',
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            setWearHistory(prevLogs);
+            persistWearHistory(prevLogs);
+          },
+        },
+      });
+    },
+    [wearHistory, persistWearHistory, showToast],
+  );
+
+  const resetToSeedData = useCallback(async () => {
+    const seedOutfits: SavedOutfit[] = [
+      {
+        id: 'outfit-seed-1',
+        name: 'Monday White Tee Uniform',
+        topId: '1a',
+        bottomId: '3b',
+        shoesId: '5a',
+        tags: ['uniform', 'campus'],
+        createdAt: new Date().toISOString(),
+        lastWornAt: null,
+      },
+      {
+        id: 'outfit-seed-2',
+        name: 'Friday Commute Casual',
+        topId: '2a',
+        bottomId: '3a',
+        shoesId: '5a',
+        tags: ['commute', 'weekend'],
+        createdAt: new Date().toISOString(),
+        lastWornAt: null,
+      },
+    ];
+
+    setItems(MOCK_CLOTHING);
+    setSavedOutfits(seedOutfits);
+    setWearHistory([]);
+    await persist(MOCK_CLOTHING);
+    await persistOutfits(seedOutfits);
+    await persistWearHistory([]);
+
+    showToast({
+      message: 'Reset wardrobe to default starter seed items',
+      type: 'success',
+    });
+  }, [persist, persistOutfits, persistWearHistory, showToast]);
+
+  const clearAllData = useCallback(async () => {
+    setItems([]);
+    setSavedOutfits([]);
+    setWearHistory([]);
+    await persist([]);
+    await persistOutfits([]);
+    await persistWearHistory([]);
+
+    showToast({
+      message: 'Cleared all items — started with empty wardrobe',
+      type: 'info',
+    });
+  }, [persist, persistOutfits, persistWearHistory, showToast]);
 
   // ── Computed ──────────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
@@ -950,6 +1147,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       updateLocationNames,
       getLocationLabel,
       addItem,
+      addItems,
+      duplicateItem,
       updateItem,
       deleteItem,
       batchMoveItems,
@@ -959,6 +1158,9 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       addSavedOutfit,
       deleteSavedOutfit,
       logOutfitWorn,
+      deleteWearLog,
+      resetToSeedData,
+      clearAllData,
       showToast,
       exportBackup,
       restoreBackup,
@@ -988,6 +1190,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       updateLocationNames,
       getLocationLabel,
       addItem,
+      addItems,
+      duplicateItem,
       updateItem,
       deleteItem,
       batchMoveItems,
@@ -997,6 +1201,9 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       addSavedOutfit,
       deleteSavedOutfit,
       logOutfitWorn,
+      deleteWearLog,
+      resetToSeedData,
+      clearAllData,
       showToast,
       exportBackup,
       restoreBackup,

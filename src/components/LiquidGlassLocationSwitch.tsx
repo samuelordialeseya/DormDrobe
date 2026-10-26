@@ -13,6 +13,7 @@ import {
 import { Location } from '../types/wardrobe';
 import { Colors, Radii } from '../theme/theme';
 import { LocationIcon } from './AppIcons';
+import { useWardrobe } from '../context/WardrobeContext';
 
 const TRACK_HEIGHT = 36;
 const PADDING = 3;
@@ -33,6 +34,12 @@ export default function LiquidGlassLocationSwitch({
   const isDorm = currentLocation === 'batangas_dorm';
   const isHome = currentLocation === 'calamba_home';
   const useNativeDriver = Platform.OS !== 'web';
+  const { getLocationLabel } = useWardrobe();
+
+  const dormFull = getLocationLabel('batangas_dorm');
+  const homeFull = getLocationLabel('calamba_home');
+  const dormText = dormFull === 'Batangas Dorm' ? 'Dorm' : dormFull;
+  const homeText = homeFull === 'Calamba Home' ? 'Home' : homeFull;
 
   // Dynamic track measurement for pixel-perfect sliding alignment
   const [trackWidth, setTrackWidth] = useState(DEFAULT_TOTAL_WIDTH);
@@ -200,7 +207,7 @@ export default function LiquidGlassLocationSwitch({
               ]}
               numberOfLines={1}
             >
-              Dorm
+              {dormText}
             </Text>
             <Animated.View
               style={[
@@ -249,7 +256,7 @@ export default function LiquidGlassLocationSwitch({
               ]}
               numberOfLines={1}
             >
-              Home
+              {homeText}
             </Text>
             <Animated.View
               style={[

@@ -8,6 +8,8 @@ import {
   Platform,
   Share,
   TextInput,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isSupabaseConfigured } from '../config/supabase';
@@ -37,10 +39,14 @@ export default function SettingsScreen() {
     locationNames,
     updateLocationNames,
     getLocationLabel,
+    clearAllData,
+    resetToSeedData,
   } = useWardrobe();
   const [isPersisted, setIsPersisted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'reset' | 'clear' | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   const [dormName, setDormName] = useState(locationNames.batangas_dorm);
   const [homeName, setHomeName] = useState(locationNames.calamba_home);
@@ -145,24 +151,23 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleClearData = () => {
-    Alert.alert(
-      'Reset All Data',
-      'This will delete all your local clothing items and reload default seed data on next launch.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await AppStorage.removeItem('@dormdrobe/clothing');
-            await AppStorage.removeItem('@dormdrobe/saved_outfits');
-            await AppStorage.removeItem('@dormdrobe/wear_history');
-            showToast({ message: 'Reset complete. Refresh to reload fresh seed data.', type: 'info' });
-          },
-        },
-      ],
-    );
+  const executeConfirmedAction = async () => {
+    if (!confirmAction) return;
+    setIsActionLoading(true);
+    try {
+      if (confirmAction === 'clear') {
+        await clearAllData();
+        showToast({ message: 'Wardrobe cleared to 0 items.', type: 'info' });
+      } else if (confirmAction === 'reset') {
+        await resetToSeedData();
+        showToast({ message: 'Loaded sample student wardrobe (42 pieces)!', type: 'success' });
+      }
+    } catch (err: any) {
+      showToast({ message: err?.message || 'Action failed', type: 'warning' });
+    } finally {
+      setIsActionLoading(false);
+      setConfirmAction(null);
+    }
   };
 
   const stats = [
@@ -356,7 +361,7 @@ export default function SettingsScreen() {
             </View>
           </FadeSlideIn>
 
-          {/* Data management / Danger zone */}
+          {/* Data management / Testing & Seed Data */}
           <FadeSlideIn delay={240} fromY={16}>
             <View style={styles.card}>
               <View style={styles.specular} />
@@ -365,16 +370,27 @@ export default function SettingsScreen() {
                   <Layers size={20} color={Colors.textPrimary} strokeWidth={2} />
                 </View>
                 <View style={styles.cardHeaderText}>
-                  <Text style={styles.cardTitle}>Reset Wardrobe</Text>
+                  <Text style={styles.cardTitle}>Wardrobe Data Management</Text>
+                  <Text style={styles.cardSubtitle}>Testing controls for empty closet & demo seeds</Text>
                 </View>
               </View>
-              <PressableScale onPress={handleClearData} scaleTo={0.96}>
-                <View style={styles.dangerBtn}>
-                  <Text style={styles.dangerBtnText}>Reset to Default Seed Data</Text>
-                </View>
-              </PressableScale>
+
+              <View style={{ gap: 10, marginTop: 4 }}>
+                <PressableScale onPress={() => setConfirmAction('reset')} scaleTo={0.96}>
+                  <View style={styles.primaryActionBtn}>
+                    <Text style={styles.primaryActionBtnText}>Load Sample Demo Wardrobe (42 items)</Text>
+                  </View>
+                </PressableScale>
+
+                <PressableScale onPress={() => setConfirmAction('clear')} scaleTo={0.96}>
+                  <View style={styles.dangerBtn}>
+                    <Text style={styles.dangerBtnText}>Clear to Empty Closet (0 items)</Text>
+                  </View>
+                </PressableScale>
+              </View>
+
               <Text style={styles.hint}>
-                Clears current custom pieces and resets to fresh starter student items.
+                Use "Clear" to test the first-run empty closet onboarding, or "Load Sample" to instantly populate seeded outfits and test all features.
               </Text>
             </View>
           </FadeSlideIn>
@@ -397,6 +413,58 @@ export default function SettingsScreen() {
             </View>
           </FadeSlideIn>
         </ScrollView>
+
+        {/* Cross-Platform Confirmation Modal (Web + Native) */}
+        <Modal
+          visible={!!confirmAction}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setConfirmAction(null)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>
+                {confirmAction === 'clear'
+                  ? 'Clear All Wardrobe Data?'
+                  : 'Load Sample Wardrobe?'}
+              </Text>
+              <Text style={styles.modalSubtitle}>
+                {confirmAction === 'clear'
+                  ? 'This will wipe all local clothing items, lookbook outfits, and wear history so you can test starting with a fresh empty closet.'
+                  : 'This will restore the curated 42-item sample wardrobe (Batangas Dorm, Calamba Home, and Lookbook fits) for testing.'}
+              </Text>
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  onPress={() => setConfirmAction(null)}
+                  style={styles.modalCancelBtn}
+                  disabled={isActionLoading}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={executeConfirmedAction}
+                  style={[
+                    styles.modalConfirmBtn,
+                    confirmAction === 'clear'
+                      ? styles.modalConfirmDanger
+                      : styles.modalConfirmPrimary,
+                  ]}
+                  disabled={isActionLoading}
+                >
+                  <Text style={styles.modalConfirmText}>
+                    {isActionLoading
+                      ? 'Processing...'
+                      : confirmAction === 'clear'
+                      ? 'Yes, Clear All'
+                      : 'Yes, Load Samples'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -597,6 +665,20 @@ const styles = StyleSheet.create({
     marginTop: 3,
     textAlign: 'center',
   },
+  primaryActionBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.lg,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    marginBottom: 2,
+  },
+  primaryActionBtnText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   dangerBtn: {
     backgroundColor: 'rgba(220,38,38,0.06)',
     borderRadius: Radii.lg,
@@ -697,5 +779,72 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 20, 19, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.xxl,
+    padding: 22,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-end',
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.bgSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalConfirmBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmPrimary: {
+    backgroundColor: Colors.accent,
+  },
+  modalConfirmDanger: {
+    backgroundColor: '#DC2626',
+  },
+  modalConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

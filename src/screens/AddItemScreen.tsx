@@ -54,7 +54,7 @@ export default function AddItemScreen() {
   const route = useRoute<any>();
   const editItem = route.params?.editItem as ClothingItem | undefined;
 
-  const { addItem, updateItem, currentLocation, showToast, getLocationLabel } = useWardrobe();
+  const { addItem, addItems, updateItem, currentLocation, showToast, getLocationLabel } = useWardrobe();
 
   const [name, setName] = useState(editItem?.name ?? '');
   const [category, setCategory] = useState<Category>(editItem?.category ?? 'tops');
@@ -64,6 +64,7 @@ export default function AddItemScreen() {
   const [status, setStatus] = useState<Status>(editItem?.status ?? 'clean');
   const [isUniform, setIsUniform] = useState(editItem?.isUniformWhiteTee ?? false);
   const [notes, setNotes] = useState(editItem?.notes ?? '');
+  const [quantity, setQuantity] = useState(1);
 
   // Image & non-AI background removal states
   const [originalUri, setOriginalUri] = useState<string | null>(editItem?.imageUrl ?? null);
@@ -71,6 +72,21 @@ export default function AddItemScreen() {
   const [isCutoutActive, setIsCutoutActive] = useState(false);
   const [isProcessingBg, setIsProcessingBg] = useState(false);
   const [bgTolerance, setBgTolerance] = useState(28);
+
+  const resetForm = () => {
+    setName('');
+    setCategory('tops');
+    setColor('White');
+    setBrand('');
+    setLocation(currentLocation);
+    setStatus('clean');
+    setIsUniform(false);
+    setNotes('');
+    setOriginalUri(null);
+    setCutoutUri(null);
+    setIsCutoutActive(false);
+    setQuantity(1);
+  };
 
   useEffect(() => {
     if (editItem) {
@@ -83,6 +99,11 @@ export default function AddItemScreen() {
       setIsUniform(editItem.isUniformWhiteTee);
       setNotes(editItem.notes);
       setOriginalUri(editItem.imageUrl);
+      setCutoutUri(null);
+      setIsCutoutActive(false);
+      setQuantity(1);
+    } else {
+      resetForm();
     }
   }, [editItem]);
 
@@ -140,6 +161,12 @@ export default function AddItemScreen() {
     }
   };
 
+  const handleClose = () => {
+    navigation.setParams({ editItem: undefined });
+    resetForm();
+    navigation.goBack();
+  };
+
   const handleSave = () => {
     if (!name.trim()) {
       showToast({ message: 'Give your clothing item a name', type: 'warning' });
@@ -165,6 +192,37 @@ export default function AddItemScreen() {
         notes: notes.trim(),
       });
       showToast({ message: `Updated ${name.trim()}`, type: 'success' });
+    } else if (quantity > 1) {
+      const baseName = name.trim();
+      const createdItems: ClothingItem[] = [];
+      const baseId = Date.now().toString(36);
+      const nowIso = new Date().toISOString();
+
+      for (let i = 1; i <= quantity; i++) {
+        let itemName = baseName;
+        if (/#\d+$/.test(itemName)) {
+          itemName = itemName.replace(/#\d+$/, `#${i}`);
+        } else {
+          itemName = `${baseName} #${i}`;
+        }
+
+        createdItems.push({
+          id: `${baseId}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+          name: itemName,
+          category,
+          color: color.trim(),
+          brand: brand.trim() || null,
+          location,
+          status,
+          imageUrl: finalImage,
+          isUniformWhiteTee: isUniform,
+          lastWornAt: null,
+          notes: notes.trim(),
+          createdAt: nowIso,
+        });
+      }
+
+      addItems(createdItems);
     } else {
       addItem({
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -183,6 +241,8 @@ export default function AddItemScreen() {
       showToast({ message: `Added ${name.trim()} to wardrobe`, type: 'success' });
     }
 
+    navigation.setParams({ editItem: undefined });
+    resetForm();
     navigation.goBack();
   };
 
@@ -210,7 +270,7 @@ export default function AddItemScreen() {
                     {editItem ? 'Update garment details' : 'Capture a new clothing item'}
                   </Text>
                 </View>
-                <PressableScale onPress={() => navigation.goBack()} style={styles.closeBtn}>
+                <PressableScale onPress={handleClose} style={styles.closeBtn}>
                   <X size={18} color={Colors.textTertiary} />
                 </PressableScale>
               </View>
@@ -239,29 +299,35 @@ export default function AddItemScreen() {
                     {/* Cutout Actions */}
                     <View style={styles.cutoutActions}>
                       <View style={styles.cutoutBtnRow}>
-                        <PressableScale
-                          onPress={() => handleRemoveBackground()}
-                          scaleTo={0.94}
-                          style={styles.removeBgBtn}
-                          disabled={isProcessingBg}
-                        >
-                          {isProcessingBg ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                          ) : (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              {cutoutUri ? (
-                                <RotateCcw size={14} color="#FFFFFF" strokeWidth={2.2} />
-                              ) : (
-                                <Sparkles size={14} color="#FFFFFF" strokeWidth={2.2} />
-                              )}
-                              <Text style={styles.removeBgText}>
-                                {cutoutUri ? 'Re-Cutout' : 'Remove Background'}
-                              </Text>
-                            </View>
-                          )}
-                        </PressableScale>
+                        {Platform.OS === 'web' && (
+                          <PressableScale
+                            onPress={() => handleRemoveBackground()}
+                            scaleTo={0.94}
+                            style={styles.removeBgBtn}
+                            disabled={isProcessingBg}
+                          >
+                            {isProcessingBg ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                {cutoutUri ? (
+                                  <RotateCcw size={14} color="#FFFFFF" strokeWidth={2.2} />
+                                ) : (
+                                  <Sparkles size={14} color="#FFFFFF" strokeWidth={2.2} />
+                                )}
+                                <Text style={styles.removeBgText}>
+                                  {cutoutUri ? 'Re-Cutout' : 'Remove Background'}
+                                </Text>
+                              </View>
+                            )}
+                          </PressableScale>
+                        )}
 
-                        <PressableScale onPress={pickFromGallery} scaleTo={0.94}>
+                        <PressableScale
+                          onPress={pickFromGallery}
+                          scaleTo={0.94}
+                          style={Platform.OS !== 'web' ? { flex: 1 } : undefined}
+                        >
                           <View style={styles.changePhotoBtn}>
                             <Text style={styles.changePhotoText}>Change</Text>
                           </View>
@@ -437,6 +503,36 @@ export default function AddItemScreen() {
               </View>
             </FadeSlideIn>
 
+            {/* Quantity Selector (Batch Multiples) */}
+            {!editItem && (
+              <FadeSlideIn delay={100} fromY={12}>
+                <View style={styles.quantityHeader}>
+                  <Text style={styles.fieldLabel}>Quantity</Text>
+                  <Text style={styles.quantitySub}>
+                    {quantity > 1 ? `Creates ${quantity} pieces numbered #1 to #${quantity}` : '1 piece'}
+                  </Text>
+                </View>
+                <View style={styles.quantityChipRow}>
+                  {[1, 2, 3, 4, 5, 6].map((q) => {
+                    const active = quantity === q;
+                    return (
+                      <PressableScale
+                        key={q}
+                        scaleTo={0.93}
+                        onPress={() => setQuantity(q)}
+                      >
+                        <View style={[styles.qtyChip, active && styles.qtyChipActive]}>
+                          <Text style={[styles.qtyChipText, active && styles.qtyChipTextActive]}>
+                            ×{q}
+                          </Text>
+                        </View>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              </FadeSlideIn>
+            )}
+
             {/* Category */}
             <FadeSlideIn delay={120} fromY={12}>
               <Text style={styles.fieldLabel}>Category</Text>
@@ -486,7 +582,7 @@ export default function AddItemScreen() {
                           strokeWidth={2}
                         />
                         <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {loc === 'in_transit_bag' ? 'In Bag' : getLocationLabel(loc)}
+                          {getLocationLabel(loc)}
                         </Text>
                       </View>
                     </PressableScale>
@@ -837,6 +933,43 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
+  },
+  quantityHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  quantitySub: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontStyle: 'italic',
+  },
+  quantityChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  qtyChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: Radii.pill,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.borderGlass,
+  },
+  qtyChipActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  qtyChipText: {
+    color: Colors.textTertiary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  qtyChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   colorSwatchRow: {
     flexDirection: 'row',

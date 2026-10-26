@@ -66,6 +66,7 @@ export default function HomeScreen() {
 
   // ── Navigation shortcuts into the Closet zones ───────────────────
   const openZone = (zone: ClosetSubTab) => {
+    setIsPackingSession(false);
     setClosetTab(zone);
     navigation.navigate('Closet');
   };
@@ -149,8 +150,26 @@ export default function HomeScreen() {
               transform: [{ translateX: contentTranslateX }],
             }}
           >
-            {/* Transit Bag: unpack on arrival, or start packing */}
-            {bagItems.length > 0 ? (
+            {/* Transit Bag or Empty State Welcome */}
+            {items.length === 0 ? (
+              <FadeSlideIn delay={40} fromY={8}>
+                <PressableScale
+                  onPress={() => navigation.navigate('Add', { editItem: undefined })}
+                  scaleTo={0.97}
+                >
+                  <View style={[styles.packPrompt, { borderColor: Colors.borderGlassBright }]}>
+                    <View style={[styles.packPromptIcon, { backgroundColor: Colors.accent }]}>
+                      <Plus size={20} color="#FFFFFF" strokeWidth={2.4} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.packPromptTitle}>Welcome to DormDrobe!</Text>
+                      <Text style={styles.packPromptSub}>Add your first clothes to unlock outfit rolling</Text>
+                    </View>
+                    <ChevronRight size={18} color={Colors.textTertiary} />
+                  </View>
+                </PressableScale>
+              </FadeSlideIn>
+            ) : bagItems.length > 0 ? (
               <FadeSlideIn delay={40} fromY={8}>
                 <View style={styles.bagBanner}>
                   <View style={styles.bagIconBox}>
@@ -256,7 +275,7 @@ export default function HomeScreen() {
               </PressableScale>
 
               <PressableScale
-                onPress={() => navigation.navigate('Add')}
+                onPress={() => navigation.navigate('Add', { editItem: undefined })}
                 scaleTo={0.96}
                 style={styles.actionCol}
               >
