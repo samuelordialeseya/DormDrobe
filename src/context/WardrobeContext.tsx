@@ -176,7 +176,7 @@ const WardrobeContext = createContext<WardrobeState | null>(null);
 export function WardrobeProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [currentLocation, setCurrentLocationState] = useState<Location>('batangas_dorm');
-  const [closetTab, setClosetTab] = useState<ClosetSubTab>('clean');
+  const [closetTab, setClosetTab] = useState<ClosetSubTab>('all');
   const [isPackingSession, setIsPackingSession] = useState(false);
   const [locationNames, setLocationNames] = useState<LocationNames>(DEFAULT_LOCATION_NAMES);
   const [locationFilter, setLocationFilter] = useState<Location | null>(null);

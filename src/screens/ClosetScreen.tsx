@@ -13,7 +13,7 @@ import {
   UIManager,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useWardrobe } from '../context/WardrobeContext';
 import ClothingCard from '../components/ClothingCard';
 import FadeSlideIn from '../components/FadeSlideIn';
@@ -55,8 +55,9 @@ const CATEGORY_OPTIONS: (Category | null)[] = [
 ];
 
 const ZONES: { key: ClosetSubTab; label: string; color: string }[] = [
-  { key: 'clean', label: 'Clean & Ready', color: Colors.statusClean },
-  { key: 'laundry', label: 'Worn & Laundry', color: Colors.statusWorn },
+  { key: 'all', label: 'All Clothes', color: Colors.accent },
+  { key: 'clean', label: 'Clean', color: Colors.statusClean },
+  { key: 'laundry', label: 'Laundry', color: Colors.statusWorn },
   { key: 'bag', label: 'In Bag', color: Colors.locInTransit },
 ];
 
@@ -70,6 +71,7 @@ const PACK_FILTERS: { key: PackFilter; label: string }[] = [
 
 export default function ClosetScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const {
     items,
@@ -105,11 +107,29 @@ export default function ClosetScreen() {
 
   const place = getLocationLabel(currentLocation);
 
+  // Handle incoming route params (e.g. from Home's openZone or category breakdown)
+  useEffect(() => {
+    if (route.params?.zone) {
+      setClosetTab(route.params.zone);
+    }
+    if (route.params?.category !== undefined) {
+      setSelectedCategory(route.params.category);
+      setUniformOnly(false);
+    }
+    if (route.params?.zone || route.params?.category !== undefined) {
+      navigation.setParams({ zone: undefined, category: undefined });
+    }
+  }, [route.params?.zone, route.params?.category]);
+
   // Always land on "this closet" when coming back to the tab (e.g. from a Home shortcut)
   useFocusEffect(
     useCallback(() => {
       setShowAllPlaces(false);
-    }, []),
+      // If we returned to Closet from tab bar and are stuck in bag without an explicit route param, reset to 'all'
+      if (closetTab === 'bag' && !route.params?.zone) {
+        setClosetTab('all');
+      }
+    }, [closetTab, route.params?.zone]),
   );
 
   // A checklist from another location is meaningless — start fresh when the location changes
@@ -124,10 +144,18 @@ export default function ClosetScreen() {
         it.location !== 'in_transit_bag' &&
         (showAllPlaces || it.location === currentLocation),
     );
+    const bag = items.filter((it) => it.location === 'in_transit_bag');
+    const all = showAllPlaces
+      ? items
+      : items.filter(
+          (it) => it.location === currentLocation || it.location === 'in_transit_bag',
+        );
+
     return {
+      all,
       clean: here.filter((it) => !isDirtyStatus(it.status)),
       laundry: here.filter((it) => isDirtyStatus(it.status)),
-      bag: items.filter((it) => it.location === 'in_transit_bag'),
+      bag,
     };
   }, [items, currentLocation, showAllPlaces]);
 
@@ -158,6 +186,19 @@ export default function ClosetScreen() {
       return [...list].sort(
         (a, b) => Number(a.status !== 'worn') - Number(b.status !== 'worn'),
       );
+    }
+    if (closetTab === 'all') {
+      // Clean first, then worn, then laundry, then other
+      return [...list].sort((a, b) => {
+        const order: Record<string, number> = {
+          clean: 0,
+          worn: 1,
+          in_laundry: 2,
+          drying: 3,
+          misplaced: 4,
+        };
+        return (order[a.status] ?? 5) - (order[b.status] ?? 5);
+      });
     }
     return list;
   }, [zoneItems, closetTab, matchesFilters]);
@@ -405,7 +446,7 @@ export default function ClosetScreen() {
   }
 
   // ── Normal closet ────────────────────────────────────────────────
-  const hideLocationBadge = closetTab === 'bag' || !showAllPlaces;
+  const hideLocationBadge = closetTab === 'bag' || (!showAllPlaces && closetTab !== 'all');
 
   return (
     <View style={styles.container}>
@@ -416,7 +457,9 @@ export default function ClosetScreen() {
             <View>
               <Text style={styles.title}>My Closet</Text>
               <Text style={styles.subtitle}>
-                {items.length} pieces · {zoneItems.bag.length} in bag
+                {showAllPlaces
+                  ? `${items.length} pieces across all locations`
+                  : `${zoneItems.all.length} pieces at ${place} · ${zoneItems.bag.length} in bag`}
               </Text>
             </View>
             <PressableScale onPress={() => navigation.navigate('Add', { editItem: undefined })} scaleTo={0.92}>
@@ -444,7 +487,7 @@ export default function ClosetScreen() {
           </View>
         </FadeSlideIn>
 
-        {/* The 3 zones */}
+        {/* The 4 zones */}
         <FadeSlideIn delay={60} fromY={8}>
           <View style={styles.zoneRow}>
             {ZONES.map((z) => {
@@ -456,7 +499,7 @@ export default function ClosetScreen() {
                   onPress={() => switchZone(z.key)}
                   style={[
                     styles.zoneTile,
-                    active && { backgroundColor: '#FFFFFF', borderColor: z.color },
+                    active && [styles.zoneTileActive, { borderColor: z.color }],
                   ]}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: active }}
@@ -474,13 +517,23 @@ export default function ClosetScreen() {
 
           <View style={styles.scopeRow}>
             {closetTab === 'bag' ? (
-              <Text style={styles.scopeText}>
-                The bag travels with you — unpack wherever you arrive
-              </Text>
+              <View style={styles.scopeRowInner}>
+                <Text style={styles.scopeText}>
+                  {zoneItems.bag.length} piece{zoneItems.bag.length === 1 ? '' : 's'} packed in bag
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => switchZone('all')}
+                >
+                  <Text style={styles.scopeLink}>View all clothes ({items.length}) →</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <>
                 <Text style={styles.scopeText} numberOfLines={1}>
-                  {showAllPlaces ? 'Showing all places' : `Showing ${place} only`}
+                  {showAllPlaces
+                    ? `Showing all locations (${items.length} pieces)`
+                    : `Showing ${place} (${zoneItems.all.length})`}
                 </Text>
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -490,7 +543,7 @@ export default function ClosetScreen() {
                   }}
                 >
                   <Text style={styles.scopeLink}>
-                    {showAllPlaces ? `Back to ${place}` : 'Show all places'}
+                    {showAllPlaces ? `Back to ${place}` : `Show all locations (${items.length})`}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -530,15 +583,16 @@ export default function ClosetScreen() {
             return (
               <TouchableOpacity
                 key={String(cat)}
-                activeOpacity={0.7}
-                onPress={() => setSelectedCategory(cat)}
+                activeOpacity={0.75}
+                onPress={() => setSelectedCategory((prev) => (cat === null || prev === cat ? null : cat))}
                 style={[styles.categoryChip, active && styles.categoryChipActive]}
               >
                 {cat && (
                   <CategoryIcon
                     category={cat}
-                    size={12}
+                    size={14}
                     color={active ? '#FFFFFF' : Colors.textSecondary}
+                    weight={active ? 'bold' : 'regular'}
                   />
                 )}
                 <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
@@ -548,15 +602,19 @@ export default function ClosetScreen() {
             );
           })}
           <TouchableOpacity
-            activeOpacity={0.7}
+            activeOpacity={0.75}
             onPress={() => setUniformOnly((v) => !v)}
             style={[styles.categoryChip, uniformOnly && styles.uniformChipActive]}
           >
-            <Shirt size={12} color={uniformOnly ? Colors.locBatangas : Colors.textSecondary} strokeWidth={2} />
+            <Shirt
+              size={14}
+              color={uniformOnly ? Colors.locBatangas : Colors.textSecondary}
+              weight={uniformOnly ? 'bold' : 'regular'}
+            />
             <Text
               style={[
                 styles.categoryChipText,
-                uniformOnly && { color: Colors.locBatangas, fontWeight: '700' },
+                uniformOnly && { color: Colors.locBatangas },
               ]}
             >
               Uniform
@@ -623,7 +681,7 @@ export default function ClosetScreen() {
               hideLocation={hideLocationBadge}
             />
           )}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom + 90, 130) }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
@@ -682,7 +740,7 @@ export default function ClosetScreen() {
                       Nothing worn or waiting to be washed {showAllPlaces ? '' : `at ${place}`}
                     </Text>
                   </>
-                ) : (
+                ) : closetTab === 'clean' ? (
                   <>
                     <Text style={styles.emptyTitle}>No clean clothes here</Text>
                     <Text style={styles.emptyText}>
@@ -699,6 +757,13 @@ export default function ClosetScreen() {
                         </Text>
                       </PressableScale>
                     )}
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.emptyTitle}>No clothes found</Text>
+                    <Text style={styles.emptyText}>
+                      {showAllPlaces ? 'No clothes in your wardrobe' : `No clothes at ${place}`}
+                    </Text>
                   </>
                 )}
               </View>
@@ -812,27 +877,39 @@ const styles = StyleSheet.create({
   },
   zoneRow: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    gap: 6,
     paddingHorizontal: Spacing.lg,
   },
   zoneTile: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 2,
     borderRadius: Radii.lg,
     backgroundColor: Colors.bgSubtle,
     borderWidth: 1.5,
     borderColor: 'transparent',
+    minHeight: 60,
+  },
+  zoneTileActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   zoneCount: {
-    fontSize: 21,
+    fontSize: 19,
     fontWeight: '700',
     letterSpacing: -0.5,
   },
   zoneLabel: {
     color: Colors.textTertiary,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
+    textAlign: 'center',
     marginTop: 1,
   },
   scopeRow: {
@@ -843,6 +920,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: 8,
     paddingBottom: 2,
+  },
+  scopeRowInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
   scopeText: {
     flexShrink: 1,
@@ -884,41 +968,62 @@ const styles = StyleSheet.create({
   },
   categoryScroll: {
     flexGrow: 0,
+    flexShrink: 0,
+    marginTop: 6,
   },
   categoryRow: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: 2,
+    paddingTop: 6,
+    paddingBottom: Spacing.sm,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 14,
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   categoryChipActive: {
     backgroundColor: Colors.accent,
     borderColor: Colors.accent,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+    elevation: 2,
   },
   uniformChipActive: {
     backgroundColor: Colors.locBatangasBg,
-    borderColor: 'rgba(29, 78, 216, 0.4)',
+    borderColor: Colors.locBatangas,
+    shadowColor: Colors.locBatangas,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 2,
   },
   categoryChipText: {
     color: Colors.textSecondary,
-    fontSize: 11.5,
-    fontWeight: '500',
+    fontSize: 12.5,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+    flexShrink: 0,
   },
   categoryChipTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   actionBar: {
     paddingHorizontal: Spacing.lg,
@@ -1032,14 +1137,18 @@ const styles = StyleSheet.create({
   // Pack Bag session
   packFilterRow: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
   },
   pill: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
+    height: 34,
+    paddingHorizontal: 14,
     borderRadius: Radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
@@ -1047,11 +1156,17 @@ const styles = StyleSheet.create({
   pillActive: {
     backgroundColor: Colors.accent,
     borderColor: Colors.accent,
+    shadowColor: '#141413',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
   },
   pillText: {
     color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 12.5,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
   pillTextActive: {
     color: '#FFFFFF',

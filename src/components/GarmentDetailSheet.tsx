@@ -11,6 +11,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   ClothingItem,
@@ -83,14 +85,34 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
   const translateY = useRef(new Animated.Value(450)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
-  // Inline notes editing
+  // Local drafts for fields that can be edited inside the card
+  const [draftStatus, setDraftStatus] = useState<Status>(item?.status ?? 'clean');
+  const [draftLocation, setDraftLocation] = useState<Location>(item?.location ?? 'batangas_dorm');
+  const [notesText, setNotesText] = useState(item?.notes || '');
   const [editingNotes, setEditingNotes] = useState(false);
-  const [notesText, setNotesText] = useState('');
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [showSaveBtn, setShowSaveBtn] = useState(false);
+
+  // Auto-pop save button animation
+  const savePopAnim = useRef(new Animated.Value(0)).current;
+
+  // Track changes against original item
+  const hasStatusChanged = !!item && draftStatus !== item.status;
+  const hasLocationChanged = !!item && draftLocation !== item.location;
+  const hasNotesChanged = !!item && notesText.trim() !== (item.notes || '').trim();
+  const hasChanges = hasStatusChanged || hasLocationChanged || hasNotesChanged;
+  const changeCount =
+    (hasStatusChanged ? 1 : 0) + (hasLocationChanged ? 1 : 0) + (hasNotesChanged ? 1 : 0);
 
   useEffect(() => {
     if (visible && item) {
+      setDraftStatus(item.status);
+      setDraftLocation(item.location);
       setNotesText(item.notes || '');
       setEditingNotes(false);
+      setSavedSuccess(false);
+      setShowSaveBtn(false);
+      savePopAnim.setValue(0);
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 1,
@@ -120,45 +142,130 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
     }
   }, [visible, item]);
 
+  // Spring animation for auto-popping the save button beside the close button
+  useEffect(() => {
+    if (hasChanges) {
+      setShowSaveBtn(true);
+      Animated.spring(savePopAnim, {
+        toValue: 1,
+        tension: 320,
+        friction: 20,
+        useNativeDriver: true,
+      }).start();
+    } else if (showSaveBtn) {
+      Animated.timing(savePopAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowSaveBtn(false);
+      });
+    }
+  }, [hasChanges]);
+
   if (!item) return null;
 
-  const handleStatusChange = (newStatus: Status) => {
+  const handleResetDrafts = () => {
     if (!item) return;
-    const oldStatus = item.status;
-    const prevLastWornAt = item.lastWornAt;
-    updateItem(item.id, {
-      status: newStatus,
-      ...(newStatus === 'worn' ? { lastWornAt: new Date().toISOString() } : {}),
-    });
-    showToast({
-      message: `Marked as ${STATUS_LABELS[newStatus]}`,
-      type: 'success',
-      action: {
-        label: 'Undo',
-        onPress: () => updateItem(item.id, { status: oldStatus, lastWornAt: prevLastWornAt }),
-      },
-    });
-  };
-
-  const handleLocationChange = (newLocation: Location) => {
-    if (!item) return;
-    const oldLocation = item.location;
-    updateItem(item.id, { location: newLocation });
-    showToast({
-      message: `Moved to ${getLocationLabel(newLocation)}`,
-      type: 'success',
-      action: {
-        label: 'Undo',
-        onPress: () => updateItem(item.id, { location: oldLocation }),
-      },
-    });
-  };
-
-  const handleSaveNotes = () => {
-    if (!item) return;
-    updateItem(item.id, { notes: notesText.trim() });
+    setDraftStatus(item.status);
+    setDraftLocation(item.location);
+    setNotesText(item.notes || '');
     setEditingNotes(false);
-    showToast({ message: 'Notes updated', type: 'info' });
+  };
+
+  const handleSaveAll = (shouldClose = true) => {
+    if (!item || !hasChanges) {
+      if (shouldClose) onClose();
+      return;
+    }
+
+    const patch: Partial<ClothingItem> = {};
+    const changesSummary: string[] = [];
+
+    if (hasStatusChanged) {
+      patch.status = draftStatus;
+      if (draftStatus === 'worn' && item.status !== 'worn') {
+        patch.lastWornAt = new Date().toISOString();
+      }
+      changesSummary.push(`status to ${STATUS_LABELS[draftStatus]}`);
+    }
+
+    if (hasLocationChanged) {
+      patch.location = draftLocation;
+      changesSummary.push(`location to ${getLocationLabel(draftLocation)}`);
+    }
+
+    if (hasNotesChanged) {
+      patch.notes = notesText.trim();
+      changesSummary.push('notes');
+    }
+
+    const prevSnapshot: Partial<ClothingItem> = {
+      status: item.status,
+      location: item.location,
+      notes: item.notes,
+      lastWornAt: item.lastWornAt,
+    };
+
+    updateItem(item.id, patch);
+    setSavedSuccess(true);
+
+    let toastMessage = `Saved changes to ${item.name}`;
+    if (changesSummary.length === 1) {
+      if (hasStatusChanged) {
+        toastMessage = `Marked as ${STATUS_LABELS[draftStatus]}`;
+      } else if (hasLocationChanged) {
+        toastMessage = `Moved to ${getLocationLabel(draftLocation)}`;
+      } else if (hasNotesChanged) {
+        toastMessage = 'Notes updated';
+      }
+    }
+
+    showToast({
+      message: toastMessage,
+      type: 'success',
+      action: {
+        label: 'Undo',
+        onPress: () => updateItem(item.id, prevSnapshot),
+      },
+    });
+
+    if (shouldClose) {
+      setTimeout(() => {
+        onClose();
+      }, 220);
+    }
+  };
+
+  const handleAttemptClose = () => {
+    if (hasChanges) {
+      Alert.alert(
+        'Unsaved Changes',
+        'You have unsaved changes to this clothing item. Would you like to save them before exiting?',
+        [
+          {
+            text: 'Discard & Exit',
+            style: 'destructive',
+            onPress: () => {
+              handleResetDrafts();
+              onClose();
+            },
+          },
+          {
+            text: 'Keep Editing',
+            style: 'cancel',
+          },
+          {
+            text: 'Save & Exit',
+            onPress: () => {
+              handleSaveAll(true);
+            },
+          },
+        ],
+      );
+    } else {
+      onClose();
+    }
   };
 
   const handleDuplicate = () => {
@@ -190,10 +297,13 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
       visible={visible}
       transparent
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={handleAttemptClose}
     >
-      <View style={styles.modalOverlay}>
-        <TouchableWithoutFeedback onPress={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <TouchableWithoutFeedback onPress={handleAttemptClose}>
           <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
         </TouchableWithoutFeedback>
 
@@ -216,14 +326,59 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
               </Text>
               {item.brand && <Text style={styles.garmentBrand}>{item.brand}</Text>}
             </View>
-            <PressableScale onPress={onClose} style={styles.closeBtn}>
-              <X size={18} color={Colors.textTertiary} />
-            </PressableScale>
+            <View style={styles.headerActions}>
+              {showSaveBtn && (
+                <Animated.View
+                  style={[
+                    styles.headerSaveAnim,
+                    {
+                      opacity: savePopAnim,
+                      transform: [
+                        {
+                          scale: savePopAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.65, 1],
+                          }),
+                        },
+                        {
+                          translateX: savePopAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [10, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <PressableScale
+                    onPress={() => handleSaveAll(true)}
+                    scaleTo={0.93}
+                  >
+                    <View
+                      style={[
+                        styles.headerSaveBtn,
+                        savedSuccess && styles.headerSaveBtnSuccess,
+                      ]}
+                    >
+                      <Check size={13} color="#FFFFFF" strokeWidth={3} />
+                      <Text style={styles.headerSaveBtnText}>
+                        {savedSuccess ? 'Saved' : 'Save'}
+                      </Text>
+                    </View>
+                  </PressableScale>
+                </Animated.View>
+              )}
+
+              <PressableScale onPress={handleAttemptClose} style={styles.closeBtn}>
+                <X size={18} color={Colors.textTertiary} />
+              </PressableScale>
+            </View>
           </View>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
             {/* Garment Hero Row: Image + Tags */}
             <View style={styles.heroRow}>
@@ -259,7 +414,9 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                 <View style={styles.wearHistoryPill}>
                   <Clock size={12} color={Colors.textTertiary} />
                   <Text style={styles.wearHistoryText}>
-                    {formatRelativeTime(item.lastWornAt)}
+                    {draftStatus === 'worn' && item.status !== 'worn'
+                      ? 'Will be marked worn today'
+                      : formatRelativeTime(item.lastWornAt)}
                   </Text>
                 </View>
               </View>
@@ -267,16 +424,24 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
 
             {/* Quick Status Selector */}
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>STATUS</Text>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionLabel}>STATUS</Text>
+                {hasStatusChanged && (
+                  <View style={styles.editedBadge}>
+                    <Text style={styles.editedBadgeText}>edited</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.statusRow}>
                 {ALL_STATUSES.map((st) => {
-                  const active = item.status === st;
+                  const active = draftStatus === st;
+                  const isOriginal = item.status === st;
                   const color = STATUS_COLORS[st];
                   return (
                     <TouchableOpacity
                       key={st}
                       activeOpacity={0.7}
-                      onPress={() => handleStatusChange(st)}
+                      onPress={() => setDraftStatus(st)}
                       style={[
                         styles.statusBtn,
                         active && {
@@ -294,6 +459,9 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                       >
                         {STATUS_LABELS[st]}
                       </Text>
+                      {active && !isOriginal && (
+                        <View style={[styles.changeIndicatorDot, { backgroundColor: color }]} />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -302,10 +470,17 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
 
             {/* Quick Location Selector */}
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>LOCATION</Text>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionLabel}>LOCATION</Text>
+                {hasLocationChanged && (
+                  <View style={styles.editedBadge}>
+                    <Text style={styles.editedBadgeText}>edited</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.locationRow}>
                 {ALL_LOCATIONS.map((loc) => {
-                  const active = item.location === loc;
+                  const active = draftLocation === loc;
                   const isBatangas = loc === 'batangas_dorm';
                   const isCalamba = loc === 'calamba_home';
                   const activeBg = isBatangas
@@ -313,12 +488,13 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                     : isCalamba
                     ? Colors.locCalamba
                     : Colors.locInTransit;
+                  const isOriginal = item.location === loc;
 
                   return (
                     <TouchableOpacity
                       key={loc}
                       activeOpacity={0.7}
-                      onPress={() => handleLocationChange(loc)}
+                      onPress={() => setDraftLocation(loc)}
                       style={[
                         styles.locBtn,
                         active && { backgroundColor: activeBg, borderColor: activeBg },
@@ -337,6 +513,9 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                       >
                         {getLocationLabel(loc)}
                       </Text>
+                      {active && !isOriginal && (
+                        <View style={styles.changeIndicatorDotLight} />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -346,7 +525,14 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
             {/* Notes Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionLabel}>NOTES</Text>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionLabel}>NOTES</Text>
+                  {hasNotesChanged && (
+                    <View style={styles.editedBadge}>
+                      <Text style={styles.editedBadgeText}>edited</Text>
+                    </View>
+                  )}
+                </View>
                 {!editingNotes && (
                   <TouchableOpacity onPress={() => setEditingNotes(true)}>
                     <Text style={styles.editNotesLink}>Edit</Text>
@@ -367,16 +553,19 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                   />
                   <View style={styles.notesBtnRow}>
                     <TouchableOpacity
-                      onPress={() => setEditingNotes(false)}
+                      onPress={() => {
+                        setNotesText(item.notes || '');
+                        setEditingNotes(false);
+                      }}
                       style={styles.notesCancelBtn}
                     >
                       <Text style={styles.notesCancelText}>Cancel</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={handleSaveNotes}
+                      onPress={() => setEditingNotes(false)}
                       style={styles.notesSaveBtn}
                     >
-                      <Text style={styles.notesSaveText}>Save Notes</Text>
+                      <Text style={styles.notesSaveText}>Done</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -389,10 +578,10 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                   <Text
                     style={[
                       styles.notesText,
-                      !item.notes && styles.notesPlaceholder,
+                      !notesText && styles.notesPlaceholder,
                     ]}
                   >
-                    {item.notes || 'No notes yet. Tap to add details, sizing, or laundry tips.'}
+                    {notesText || 'No notes yet. Tap to add details, sizing, or laundry tips.'}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -404,8 +593,40 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                 <PressableScale
                   scaleTo={0.96}
                   onPress={() => {
-                    onClose();
-                    onEdit(item);
+                    if (hasChanges) {
+                      Alert.alert(
+                        'Unsaved Changes',
+                        'You have unsaved edits. Save them before editing other details?',
+                        [
+                          {
+                            text: 'Discard & Edit Full',
+                            style: 'destructive',
+                            onPress: () => {
+                              handleResetDrafts();
+                              onClose();
+                              onEdit(item);
+                            },
+                          },
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Save & Edit Full',
+                            onPress: () => {
+                              handleSaveAll(false);
+                              onClose();
+                              onEdit({
+                                ...item,
+                                status: draftStatus,
+                                location: draftLocation,
+                                notes: notesText.trim(),
+                              });
+                            },
+                          },
+                        ],
+                      );
+                    } else {
+                      onClose();
+                      onEdit(item);
+                    }
                   }}
                   style={styles.actionBtnEdit}
                 >
@@ -434,7 +655,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
             </View>
           </ScrollView>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -772,5 +993,72 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontSize: 13,
     fontWeight: '600',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editedBadge: {
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.28)',
+  },
+  editedBadgeText: {
+    color: '#D97706',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  changeIndicatorDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginLeft: 1,
+  },
+  changeIndicatorDotLight: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#FFFFFF',
+    marginLeft: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerSaveAnim: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerSaveBtn: {
+    height: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 13,
+    borderRadius: 16,
+    backgroundColor: Colors.accent,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  headerSaveBtnSuccess: {
+    backgroundColor: Colors.statusClean,
+    shadowColor: Colors.statusClean,
+  },
+  headerSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

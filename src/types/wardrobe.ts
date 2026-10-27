@@ -100,8 +100,8 @@ export const DIRTY_STATUSES: Status[] = ['worn', 'in_laundry', 'drying'];
 /** True when a piece is worn / in laundry. Everything else sits in the "Clean & Ready" zone. */
 export const isDirtyStatus = (status: Status): boolean => DIRTY_STATUSES.includes(status);
 
-/** The 3 zones of the Closet screen. */
-export type ClosetSubTab = 'clean' | 'laundry' | 'bag';
+/** The primary zones of the Closet screen: All clothes, Clean & ready, Laundry / worn, and Transit bag. */
+export type ClosetSubTab = 'all' | 'clean' | 'laundry' | 'bag';
 
 /** What to do with dirty (worn / in-laundry) pieces when the Transit Bag is unpacked. */
 export type UnpackStatusAction = 'clean' | 'in_laundry' | 'keep';
