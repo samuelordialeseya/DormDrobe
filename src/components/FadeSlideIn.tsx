@@ -27,7 +27,7 @@ export default function FadeSlideIn({
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 320,
+        duration: 160,
         delay,
         useNativeDriver: true,
       }),
@@ -35,8 +35,8 @@ export default function FadeSlideIn({
         toValue: 0,
         delay,
         useNativeDriver: true,
-        tension: 240,
-        friction: 26,
+        tension: 280,
+        friction: 24,
       }),
     ]).start();
   }, []);

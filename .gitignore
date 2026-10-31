@@ -37,6 +37,9 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# design reviews / tooling
+.impeccable/
+
 # generated native folders
 /ios
 /android

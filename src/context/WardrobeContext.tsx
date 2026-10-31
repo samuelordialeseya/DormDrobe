@@ -20,6 +20,7 @@ import {
   LOCATION_LABELS,
   LocationNames,
   DEFAULT_LOCATION_NAMES,
+  isIntimatesItem,
 } from '../types/wardrobe';
 import { MOCK_CLOTHING } from '../utils/mockData';
 import { supabase, isSupabaseConfigured } from '../config/supabase';
@@ -44,6 +45,7 @@ function toDbItem(it: ClothingItem) {
     brand: it.brand,
     location: it.location,
     status: it.status,
+    wear_count: it.wearCount ?? 0,
     image_url: it.imageUrl,
     is_uniform_white_tee: it.isUniformWhiteTee,
     last_worn_at: it.lastWornAt,
@@ -61,6 +63,7 @@ function fromDbItem(db: any): ClothingItem {
     brand: db.brand ?? null,
     location: db.location,
     status: db.status,
+    wearCount: typeof db.wear_count === 'number' ? db.wear_count : undefined,
     imageUrl: db.image_url ?? null,
     isUniformWhiteTee: !!db.is_uniform_white_tee,
     lastWornAt: db.last_worn_at ?? null,
@@ -72,14 +75,25 @@ function fromDbItem(db: any): ClothingItem {
 // ─── Legacy status normalization ─────────────────────────────────────
 // The UI now uses a 3-step lifecycle (Clean → Worn → In Laundry). Any stored
 // `drying` rows are folded into `in_laundry` so nothing gets orphaned.
+// Also keeps `wearCount` consistent with status: clean → 0, worn → at least 1.
 function normalizeLegacyStatuses(list: ClothingItem[]): { items: ClothingItem[]; changed: boolean } {
   let changed = false;
   const next = list.map((it) => {
-    if (it.status === 'drying') {
+    let out = it;
+    if (out.status === 'drying') {
       changed = true;
-      return { ...it, status: 'in_laundry' as Status };
+      out = { ...out, status: 'in_laundry' as Status };
     }
-    return it;
+    if (out.status === 'clean' && (out.wearCount ?? 0) !== 0) {
+      changed = true;
+      out = { ...out, wearCount: 0 };
+    } else if (out.status === 'worn' && (out.wearCount ?? 0) < 1) {
+      changed = true;
+      out = { ...out, wearCount: 1 };
+    } else if (out.status === 'clean' && out.wearCount === undefined) {
+      out = { ...out, wearCount: 0 };
+    }
+    return out;
   });
   return { items: next, changed };
 }
@@ -94,6 +108,8 @@ interface WardrobeState {
   closetTab: ClosetSubTab;
   /** True while the Closet is in the "Pack Bag" checklist session */
   isPackingSession: boolean;
+  /** True while the full-screen step-by-step "Get Dressed" Wear Wizard is open */
+  isWearWizardSession: boolean;
   /** Currently selected location filter (null = All) */
   locationFilter: Location | null;
   /** Currently selected status filter (null = All) */
@@ -115,6 +131,7 @@ interface WardrobeState {
   setCurrentLocation: (loc: Location) => void;
   setClosetTab: (tab: ClosetSubTab) => void;
   setIsPackingSession: (active: boolean) => void;
+  setIsWearWizardSession: (active: boolean) => void;
   setLocationFilter: (loc: Location | null) => void;
   setStatusFilter: (st: Status | null) => void;
   setSearchQuery: (q: string) => void;
@@ -137,6 +154,11 @@ interface WardrobeState {
   batchSetStatusByIds: (ids: string[], newStatus: Status, toastMessage?: string) => void;
   /** 1-tap card action: Clean → Worn → In Laundry → Clean, with an Undo toast */
   advanceItemStatus: (id: string) => void;
+  /**
+   * Re-wear an already-worn piece: keeps it Worn, bumps `wearCount` by 1 and refreshes
+   * `lastWornAt`. The caller is expected to have confirmed with the user first.
+   */
+  wearItemAgain: (id: string) => void;
   /**
    * Unpack Bag: moves all items in 'in_transit_bag' to target location.
    * `statusAction` decides what happens to dirty (worn / in-laundry) pieces.
@@ -178,6 +200,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
   const [currentLocation, setCurrentLocationState] = useState<Location>('batangas_dorm');
   const [closetTab, setClosetTab] = useState<ClosetSubTab>('all');
   const [isPackingSession, setIsPackingSession] = useState(false);
+  const [isWearWizardSession, setIsWearWizardSession] = useState(false);
   const [locationNames, setLocationNames] = useState<LocationNames>(DEFAULT_LOCATION_NAMES);
   const [locationFilter, setLocationFilter] = useState<Location | null>(null);
   const [statusFilter, setStatusFilter] = useState<Status | null>(null);
@@ -298,6 +321,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
               topId: '2a',
               bottomId: '3a',
               shoesId: '5a',
+              socksId: '4e_und',
+              underwearId: '4a_und',
               tags: ['commute', 'weekend'],
               createdAt: new Date().toISOString(),
               lastWornAt: null,
@@ -327,6 +352,10 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
             const parsed = data.map(fromDbItem);
             let hasBackfill = false;
             const enriched = parsed.map((item) => {
+              if (isIntimatesItem(item) && item.imageUrl) {
+                hasBackfill = true;
+                return { ...item, imageUrl: null };
+              }
               const mockMatch = MOCK_CLOTHING.find(
                 (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
               );
@@ -371,6 +400,10 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
           // Auto-backfill sample images for seeded mock items that lacked images
           let hasBackfill = false;
           const updated = parsed.map((item) => {
+            if (isIntimatesItem(item) && item.imageUrl) {
+              hasBackfill = true;
+              return { ...item, imageUrl: null };
+            }
             const mockMatch = MOCK_CLOTHING.find(
               (m) => m.id === item.id || m.name.toLowerCase() === item.name.toLowerCase()
             );
@@ -550,6 +583,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         if (patch.brand !== undefined) dbPatch.brand = patch.brand;
         if (patch.location !== undefined) dbPatch.location = patch.location;
         if (patch.status !== undefined) dbPatch.status = patch.status;
+        if (patch.wearCount !== undefined) dbPatch.wear_count = patch.wearCount;
         if (patch.imageUrl !== undefined) dbPatch.image_url = patch.imageUrl;
         if (patch.isUniformWhiteTee !== undefined) dbPatch.is_uniform_white_tee = patch.isUniformWhiteTee;
         if (patch.lastWornAt !== undefined) dbPatch.last_worn_at = patch.lastWornAt;
@@ -578,8 +612,11 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       // Safely update saved outfits referencing this item
       setSavedOutfits((prev) => {
         const next = prev.map((o) => {
+          if (o.outerwearId === id) return { ...o, outerwearId: null };
           if (o.shoesId === id) return { ...o, shoesId: null };
           if (o.accessoriesId === id) return { ...o, accessoriesId: null };
+          if (o.socksId === id) return { ...o, socksId: null };
+          if (o.underwearId === id) return { ...o, underwearId: null };
           return o;
         });
         persistOutfits(next);
@@ -624,14 +661,59 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  // Writes an explicit status + wearCount per item (state + storage + Supabase). No toast.
+  // Used for Undo so every item gets back its *own* previous status and wear count.
+  const writeStatusAndWear = useCallback(
+    (entries: { id: string; status: Status; wearCount: number }[]) => {
+      if (entries.length === 0) return;
+      const byId = new Map(entries.map((e) => [e.id, e]));
+      setItems((prev) => {
+        const next = prev.map((it) => {
+          const e = byId.get(it.id);
+          return e ? { ...it, status: e.status, wearCount: e.wearCount } : it;
+        });
+        persist(next);
+        return next;
+      });
+
+      if (isSupabaseConfigured) {
+        const groups = new Map<string, { status: Status; wearCount: number; ids: string[] }>();
+        entries.forEach((e) => {
+          const key = `${e.status}:${e.wearCount}`;
+          const g = groups.get(key) ?? { status: e.status, wearCount: e.wearCount, ids: [] };
+          g.ids.push(e.id);
+          groups.set(key, g);
+        });
+        groups.forEach((g) => {
+          supabase
+            .from('clothing_items')
+            .update({ status: g.status, wear_count: g.wearCount })
+            .in('id', g.ids)
+            .then(({ error }) => {
+              if (error) console.warn('[DormDrobe] Supabase status/wear error:', error.message);
+            });
+        });
+      }
+    },
+    [persist],
+  );
+
   // Applies one status to a set of ids (state + storage + Supabase). No toast.
+  // Wear count follows the lifecycle: Clean → 0, Worn → at least 1, Laundry → unchanged.
   const applyStatusToIds = useCallback(
     (ids: string[], newStatus: Status) => {
       if (ids.length === 0) return;
       const idSet = new Set(ids);
+      const nextWear = (it: ClothingItem) =>
+        newStatus === 'clean'
+          ? 0
+          : newStatus === 'worn'
+          ? Math.max(1, it.wearCount ?? 1)
+          : it.wearCount ?? 0;
+
       setItems((prev) => {
         const next = prev.map((it) =>
-          idSet.has(it.id) ? { ...it, status: newStatus } : it,
+          idSet.has(it.id) ? { ...it, status: newStatus, wearCount: nextWear(it) } : it,
         );
         persist(next);
         return next;
@@ -640,7 +722,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       if (isSupabaseConfigured) {
         supabase
           .from('clothing_items')
-          .update({ status: newStatus })
+          .update(newStatus === 'clean' ? { status: newStatus, wear_count: 0 } : { status: newStatus })
           .in('id', ids)
           .then(({ error }) => {
             if (error) console.warn('[DormDrobe] Supabase batch status error:', error.message);
@@ -654,11 +736,11 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
     (ids: string[], newStatus: Status, toastMessage?: string) => {
       if (ids.length === 0) return;
 
-      // Snapshot each affected item's own previous status so Undo only touches them.
+      // Snapshot each affected item's own previous status + wear count so Undo only touches them.
       const idSet = new Set(ids);
       const snapshot = items
         .filter((it) => idSet.has(it.id))
-        .map((it) => ({ id: it.id, status: it.status }));
+        .map((it) => ({ id: it.id, status: it.status, wearCount: it.wearCount ?? 0 }));
 
       applyStatusToIds(ids, newStatus);
 
@@ -668,21 +750,17 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
           type: 'success',
           action: {
             label: 'Undo',
-            onPress: () => {
-              const groups = new Map<Status, string[]>();
-              snapshot.forEach(({ id, status }) => {
-                groups.set(status, [...(groups.get(status) ?? []), id]);
-              });
-              groups.forEach((groupIds, status) => applyStatusToIds(groupIds, status));
-            },
+            onPress: () => writeStatusAndWear(snapshot),
           },
         });
       }
     },
-    [items, applyStatusToIds, showToast],
+    [items, applyStatusToIds, writeStatusAndWear, showToast],
   );
 
   // ── 1-tap card action: Clean → Worn → In Laundry → Clean ──────────
+  // Wearing a clean piece never prompts. Re-wearing a worn piece goes through
+  // `wearItemAgain` (after the caller confirms), not through this cycle.
   const advanceItemStatus = useCallback(
     (id: string) => {
       const target = items.find((it) => it.id === id);
@@ -690,13 +768,16 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
 
       const prevStatus = target.status;
       const prevLastWornAt = target.lastWornAt;
+      const prevWearCount = target.wearCount ?? 0;
       const nextStatus: Status =
         prevStatus === 'clean' ? 'worn' : prevStatus === 'worn' ? 'in_laundry' : 'clean';
 
       updateItem(
         id,
         nextStatus === 'worn'
-          ? { status: nextStatus, lastWornAt: new Date().toISOString() }
+          ? { status: nextStatus, wearCount: 1, lastWornAt: new Date().toISOString() }
+          : nextStatus === 'clean'
+          ? { status: nextStatus, wearCount: 0 }
           : { status: nextStatus },
       );
 
@@ -712,7 +793,45 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         type: 'success',
         action: {
           label: 'Undo',
-          onPress: () => updateItem(id, { status: prevStatus, lastWornAt: prevLastWornAt }),
+          onPress: () =>
+            updateItem(id, {
+              status: prevStatus,
+              wearCount: prevWearCount,
+              lastWornAt: prevLastWornAt,
+            }),
+        },
+      });
+    },
+    [items, updateItem, showToast],
+  );
+
+  const wearItemAgain = useCallback(
+    (id: string) => {
+      const target = items.find((it) => it.id === id);
+      if (!target) return;
+
+      const prevStatus = target.status;
+      const prevLastWornAt = target.lastWornAt;
+      const prevWearCount = target.wearCount ?? 0;
+      const nextCount = (prevStatus === 'worn' ? Math.max(1, prevWearCount) : 0) + 1;
+
+      updateItem(id, {
+        status: 'worn',
+        wearCount: nextCount,
+        lastWornAt: new Date().toISOString(),
+      });
+
+      showToast({
+        message: `Wearing ${target.name} again · Worn ${nextCount}x`,
+        type: 'success',
+        action: {
+          label: 'Undo',
+          onPress: () =>
+            updateItem(id, {
+              status: prevStatus,
+              wearCount: prevWearCount,
+              lastWornAt: prevLastWornAt,
+            }),
         },
       });
     },
@@ -738,15 +857,20 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
 
   // ── Unpack Transit Bag (with optional status update for dirty pieces) ──
   // Writes a location + status per item (state, storage and Supabase).
+  // `wearCount` is optional: when omitted it is reset to 0 for Clean pieces and left alone otherwise.
   const writeLocationAndStatus = useCallback(
-    (entries: { id: string; location: Location; status: Status }[]) => {
+    (entries: { id: string; location: Location; status: Status; wearCount?: number }[]) => {
       if (entries.length === 0) return;
       const byId = new Map(entries.map((e) => [e.id, e]));
+      const resolveWear = (e: { status: Status; wearCount?: number }, current?: number) =>
+        e.wearCount ?? (e.status === 'clean' ? 0 : current ?? 0);
 
       setItems((prev) => {
         const next = prev.map((it) => {
           const e = byId.get(it.id);
-          return e ? { ...it, location: e.location, status: e.status } : it;
+          return e
+            ? { ...it, location: e.location, status: e.status, wearCount: resolveWear(e, it.wearCount) }
+            : it;
         });
         persist(next);
         return next;
@@ -754,10 +878,15 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
 
       if (isSupabaseConfigured) {
         const byLocation = new Map<Location, string[]>();
-        const byStatus = new Map<Status, string[]>();
+        const byStatus = new Map<string, { status: Status; wearCount: number | null; ids: string[] }>();
         entries.forEach((e) => {
           byLocation.set(e.location, [...(byLocation.get(e.location) ?? []), e.id]);
-          byStatus.set(e.status, [...(byStatus.get(e.status) ?? []), e.id]);
+          // Only write wear_count to the DB when it is known (explicit, or reset by Clean).
+          const wear = e.wearCount ?? (e.status === 'clean' ? 0 : null);
+          const key = `${e.status}:${wear}`;
+          const g = byStatus.get(key) ?? { status: e.status, wearCount: wear, ids: [] };
+          g.ids.push(e.id);
+          byStatus.set(key, g);
         });
         byLocation.forEach((ids, location) => {
           supabase
@@ -768,11 +897,15 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
               if (error) console.warn('[DormDrobe] Supabase unpack error:', error.message);
             });
         });
-        byStatus.forEach((ids, status) => {
+        byStatus.forEach((g) => {
           supabase
             .from('clothing_items')
-            .update({ status })
-            .in('id', ids)
+            .update(
+              g.wearCount === null
+                ? { status: g.status }
+                : { status: g.status, wear_count: g.wearCount },
+            )
+            .in('id', g.ids)
             .then(({ error }) => {
               if (error) console.warn('[DormDrobe] Supabase unpack status error:', error.message);
             });
@@ -801,6 +934,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         id: it.id,
         location: 'in_transit_bag' as Location,
         status: it.status,
+        wearCount: it.wearCount ?? 0,
       }));
       const after = bagItems.map((it) => ({
         id: it.id,
@@ -876,12 +1010,26 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       const previousItems = [...items];
       const previousOutfits = [...savedOutfits];
 
-      // Update garment lastWornAt and mark as worn
+      // Update garment lastWornAt, mark as worn and bump the wear count:
+      // clean → Worn 1x, already worn → +1 (the UI confirms re-wears before calling this).
+      const idSet = new Set(itemIds);
+      const nextWearById = new Map<string, number>();
+      previousItems.forEach((it) => {
+        if (!idSet.has(it.id)) return;
+        nextWearById.set(it.id, (it.status === 'worn' ? Math.max(1, it.wearCount ?? 1) : 0) + 1);
+      });
+
       setItems((prev) => {
-        const idSet = new Set(itemIds);
         const next = prev.map((it) =>
           idSet.has(it.id)
-            ? { ...it, status: 'worn' as Status, lastWornAt: nowIso }
+            ? {
+                ...it,
+                status: 'worn' as Status,
+                wearCount:
+                  nextWearById.get(it.id) ??
+                  (it.status === 'worn' ? Math.max(1, it.wearCount ?? 1) : 0) + 1,
+                lastWornAt: nowIso,
+              }
             : it,
         );
         persist(next);
@@ -898,11 +1046,18 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       }
 
       if (isSupabaseConfigured) {
-        supabase
-          .from('clothing_items')
-          .update({ status: 'worn', last_worn_at: nowIso })
-          .in('id', itemIds)
-          .then(() => {});
+        // Group by new wear count so each distinct count is one request
+        const byWear = new Map<number, string[]>();
+        nextWearById.forEach((count, id) => {
+          byWear.set(count, [...(byWear.get(count) ?? []), id]);
+        });
+        byWear.forEach((ids, count) => {
+          supabase
+            .from('clothing_items')
+            .update({ status: 'worn', wear_count: count, last_worn_at: nowIso })
+            .in('id', ids)
+            .then(() => {});
+        });
       }
 
       // Add wear log entry
@@ -986,6 +1141,8 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
         topId: '2a',
         bottomId: '3a',
         shoesId: '5a',
+        socksId: '4e_und',
+        underwearId: '4a_und',
         tags: ['commute', 'weekend'],
         createdAt: new Date().toISOString(),
         lastWornAt: null,
@@ -1129,6 +1286,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       currentLocation,
       closetTab,
       isPackingSession,
+      isWearWizardSession,
       locationFilter,
       statusFilter,
       uniformFilter,
@@ -1140,6 +1298,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       setCurrentLocation,
       setClosetTab,
       setIsPackingSession,
+      setIsWearWizardSession,
       setLocationFilter,
       setStatusFilter,
       setUniformFilter,
@@ -1154,6 +1313,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       batchMoveItems,
       batchSetStatusByIds,
       advanceItemStatus,
+      wearItemAgain,
       unpackTransitBag,
       addSavedOutfit,
       deleteSavedOutfit,
@@ -1172,6 +1332,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       currentLocation,
       closetTab,
       isPackingSession,
+      isWearWizardSession,
       locationFilter,
       statusFilter,
       uniformFilter,
@@ -1183,6 +1344,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       setCurrentLocation,
       setClosetTab,
       setIsPackingSession,
+      setIsWearWizardSession,
       setLocationFilter,
       setStatusFilter,
       setUniformFilter,
@@ -1197,6 +1359,7 @@ export function WardrobeProvider({ children }: { children: ReactNode }) {
       batchMoveItems,
       batchSetStatusByIds,
       advanceItemStatus,
+      wearItemAgain,
       unpackTransitBag,
       addSavedOutfit,
       deleteSavedOutfit,

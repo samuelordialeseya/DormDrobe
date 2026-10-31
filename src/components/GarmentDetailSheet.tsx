@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,11 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Easing,
+  PanResponder,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ClothingItem,
   Location,
@@ -22,11 +26,17 @@ import {
   STATUS_LABELS,
   STATUS_COLORS,
   CATEGORY_LABELS,
+  isSockItem,
+  isIntimatesItem,
+  getWornCount,
+  formatTimes,
 } from '../types/wardrobe';
+import IntimatesMockupBadge from './IntimatesMockupBadge';
 import { Colors, Radii, Spacing, Typography } from '../theme/theme';
 import { useWardrobe } from '../context/WardrobeContext';
 import PressableScale from './PressableScale';
 import StatusBadge from './StatusBadge';
+import { useRewearPrompt } from './RewearPromptModal';
 import {
   CategoryIcon,
   LocationIcon,
@@ -79,11 +89,28 @@ function formatRelativeTime(isoString: string | null): string {
 }
 
 export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: Props) {
-  const { updateItem, deleteItem, duplicateItem, addItem, showToast, getLocationLabel } = useWardrobe();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const { updateItem, deleteItem, duplicateItem, addItem, showToast, getLocationLabel, wearItemAgain } =
+    useWardrobe();
+  const { requestWear, rewearModal } = useRewearPrompt();
 
-  // Bottom sheet spring animations
-  const translateY = useRef(new Animated.Value(450)).current;
+  // Start just below the viewport fold (~540-620px), avoiding wasted off-screen travel
+  const SHEET_OFFSCREEN = Math.min(Math.max(windowHeight * 0.8, 500), 620);
+  const sheetOffscreenRef = useRef(SHEET_OFFSCREEN);
+  sheetOffscreenRef.current = SHEET_OFFSCREEN;
+
+  // Bottom sheet animations - start off-screen
+  const translateY = useRef(new Animated.Value(SHEET_OFFSCREEN)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  // Retain active item and modal state so exit animations can complete smoothly
+  const [displayedItem, setDisplayedItem] = useState<ClothingItem | null>(item);
+  const [modalVisible, setModalVisible] = useState(visible && !!item);
+  const isClosing = useRef(false);
+
+  // Active item reference (persists during exit animation even if parent resets prop)
+  const activeItem = item ?? displayedItem;
 
   // Local drafts for fields that can be edited inside the card
   const [draftStatus, setDraftStatus] = useState<Status>(item?.status ?? 'clean');
@@ -97,15 +124,50 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
   const savePopAnim = useRef(new Animated.Value(0)).current;
 
   // Track changes against original item
-  const hasStatusChanged = !!item && draftStatus !== item.status;
-  const hasLocationChanged = !!item && draftLocation !== item.location;
-  const hasNotesChanged = !!item && notesText.trim() !== (item.notes || '').trim();
+  const hasStatusChanged = !!activeItem && draftStatus !== activeItem.status;
+  const hasLocationChanged = !!activeItem && draftLocation !== activeItem.location;
+  const hasNotesChanged = !!activeItem && notesText.trim() !== (activeItem.notes || '').trim();
   const hasChanges = hasStatusChanged || hasLocationChanged || hasNotesChanged;
   const changeCount =
     (hasStatusChanged ? 1 : 0) + (hasLocationChanged ? 1 : 0) + (hasNotesChanged ? 1 : 0);
 
+  // Fast, crisp exit animation sliding down out of the viewport
+  const animateClose = useCallback(
+    (callback?: () => void) => {
+      if (isClosing.current) return;
+      isClosing.current = true;
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 140,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: sheetOffscreenRef.current,
+          duration: 170,
+          easing: Easing.bezier(0.32, 0.72, 0, 1), // snappy drawer sweep down
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        isClosing.current = false;
+        setModalVisible(false);
+        if (callback) {
+          callback();
+        }
+        onClose();
+      });
+    },
+    [onClose],
+  );
+
+  // Fast, smooth entrance animation coming from the bottom
   useEffect(() => {
     if (visible && item) {
+      isClosing.current = false;
+      setDisplayedItem(item);
+      setModalVisible(true);
       setDraftStatus(item.status);
       setDraftLocation(item.location);
       setNotesText(item.notes || '');
@@ -113,34 +175,32 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
       setSavedSuccess(false);
       setShowSaveBtn(false);
       savePopAnim.setValue(0);
+
+      // Reset to off-screen bottom before gliding up
+      translateY.stopAnimation();
+      backdropOpacity.stopAnimation();
+      translateY.setValue(sheetOffscreenRef.current);
+      backdropOpacity.setValue(0);
+
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          tension: 280,
-          friction: 26,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 160,
+          duration: 170,
+          easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
-          toValue: 450,
-          duration: 180,
+          toValue: 0,
+          duration: 200,
+          easing: Easing.bezier(0.23, 1, 0.32, 1), // high-momentum strong ease-out
           useNativeDriver: true,
         }),
       ]).start();
+    } else if (!visible && modalVisible && !isClosing.current) {
+      // Parent changed visible to false externally
+      animateClose();
     }
-  }, [visible, item]);
+  }, [visible, item?.id, animateClose, modalVisible]);
 
   // Spring animation for auto-popping the save button beside the close button
   useEffect(() => {
@@ -163,19 +223,18 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
     }
   }, [hasChanges]);
 
-  if (!item) return null;
-
+  // Handle attempt close with unsaved changes prompt
   const handleResetDrafts = () => {
-    if (!item) return;
-    setDraftStatus(item.status);
-    setDraftLocation(item.location);
-    setNotesText(item.notes || '');
+    if (!activeItem) return;
+    setDraftStatus(activeItem.status);
+    setDraftLocation(activeItem.location);
+    setNotesText(activeItem.notes || '');
     setEditingNotes(false);
   };
 
   const handleSaveAll = (shouldClose = true) => {
-    if (!item || !hasChanges) {
-      if (shouldClose) onClose();
+    if (!activeItem || !hasChanges) {
+      if (shouldClose) animateClose();
       return;
     }
 
@@ -184,8 +243,12 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
 
     if (hasStatusChanged) {
       patch.status = draftStatus;
-      if (draftStatus === 'worn' && item.status !== 'worn') {
+      if (draftStatus === 'worn' && activeItem.status !== 'worn') {
         patch.lastWornAt = new Date().toISOString();
+        patch.wearCount = 1;
+      } else if (draftStatus === 'clean') {
+        // Washed: the wear counter starts over
+        patch.wearCount = 0;
       }
       changesSummary.push(`status to ${STATUS_LABELS[draftStatus]}`);
     }
@@ -201,16 +264,17 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
     }
 
     const prevSnapshot: Partial<ClothingItem> = {
-      status: item.status,
-      location: item.location,
-      notes: item.notes,
-      lastWornAt: item.lastWornAt,
+      status: activeItem.status,
+      wearCount: activeItem.wearCount,
+      location: activeItem.location,
+      notes: activeItem.notes,
+      lastWornAt: activeItem.lastWornAt,
     };
 
-    updateItem(item.id, patch);
+    updateItem(activeItem.id, patch);
     setSavedSuccess(true);
 
-    let toastMessage = `Saved changes to ${item.name}`;
+    let toastMessage = `Saved changes to ${activeItem.name}`;
     if (changesSummary.length === 1) {
       if (hasStatusChanged) {
         toastMessage = `Marked as ${STATUS_LABELS[draftStatus]}`;
@@ -226,18 +290,19 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
       type: 'success',
       action: {
         label: 'Undo',
-        onPress: () => updateItem(item.id, prevSnapshot),
+        onPress: () => updateItem(activeItem.id, prevSnapshot),
       },
     });
 
     if (shouldClose) {
       setTimeout(() => {
-        onClose();
-      }, 220);
+        animateClose();
+      }, 60);
     }
   };
 
   const handleAttemptClose = () => {
+    if (isClosing.current) return;
     if (hasChanges) {
       Alert.alert(
         'Unsaved Changes',
@@ -248,12 +313,20 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
             style: 'destructive',
             onPress: () => {
               handleResetDrafts();
-              onClose();
+              animateClose();
             },
           },
           {
             text: 'Keep Editing',
             style: 'cancel',
+            onPress: () => {
+              Animated.timing(translateY, {
+                toValue: 0,
+                duration: 150,
+                easing: Easing.bezier(0.23, 1, 0.32, 1),
+                useNativeDriver: true,
+              }).start();
+            },
           },
           {
             text: 'Save & Exit',
@@ -264,37 +337,79 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
         ],
       );
     } else {
-      onClose();
+      animateClose();
     }
   };
 
   const handleDuplicate = () => {
-    if (!item) return;
-    duplicateItem(item.id);
-    onClose();
-  };
-
-  const handleDelete = () => {
-    if (!item) return;
-    const deletedCopy = { ...item };
-    const itemId = item.id;
-    onClose();
-    deleteItem(itemId);
-    showToast({
-      message: `Removed ${deletedCopy.name}`,
-      type: 'info',
-      action: {
-        label: 'Undo',
-        onPress: () => addItem(deletedCopy),
-      },
+    if (!activeItem) return;
+    const it = activeItem;
+    animateClose(() => {
+      duplicateItem(it.id);
     });
   };
 
-  const swatchColor = COLOR_MAP[item.color.toLowerCase()] ?? '#636366';
+  const handleDelete = () => {
+    if (!activeItem) return;
+    const deletedCopy = { ...activeItem };
+    const itemId = activeItem.id;
+    animateClose(() => {
+      deleteItem(itemId);
+      showToast({
+        message: `Removed ${deletedCopy.name}`,
+        type: 'info',
+        action: {
+          label: 'Undo',
+          onPress: () => addItem(deletedCopy),
+        },
+      });
+    });
+  };
+
+  // Swipe-down pan responder for natural, physical dismissal
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dy > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+          const progress = Math.min(gestureState.dy / 350, 1);
+          backdropOpacity.setValue(Math.max(0, 1 - progress * 0.7));
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 90 || gestureState.vy > 0.5) {
+          handleAttemptClose();
+        } else {
+          Animated.parallel([
+            Animated.timing(translateY, {
+              toValue: 0,
+              duration: 150,
+              easing: Easing.bezier(0.23, 1, 0.32, 1),
+              useNativeDriver: true,
+            }),
+            Animated.timing(backdropOpacity, {
+              toValue: 1,
+              duration: 130,
+              useNativeDriver: true,
+            }),
+          ]).start();
+        }
+      },
+    }),
+  ).current;
+
+  if (!modalVisible && !activeItem) return null;
+  if (!activeItem) return null;
+
+  const swatchColor = COLOR_MAP[activeItem.color.toLowerCase()] ?? '#636366';
 
   return (
     <Modal
-      visible={visible}
+      visible={modalVisible}
       transparent
       animationType="none"
       onRequestClose={handleAttemptClose}
@@ -310,11 +425,14 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
         <Animated.View
           style={[
             styles.sheetContainer,
-            { transform: [{ translateY }] },
+            {
+              paddingBottom: Math.max(insets.bottom + 16, 32),
+              transform: [{ translateY }],
+            },
           ]}
         >
-          {/* Top handle grabber */}
-          <View style={styles.handleWrap}>
+          {/* Top handle grabber with drag-to-dismiss gesture */}
+          <View style={styles.handleWrap} {...panResponder.panHandlers}>
             <View style={styles.handleBar} />
           </View>
 
@@ -322,9 +440,9 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
           <View style={styles.header}>
             <View style={styles.headerTitleWrap}>
               <Text style={styles.garmentName} numberOfLines={1}>
-                {item.name}
+                {activeItem.name}
               </Text>
-              {item.brand && <Text style={styles.garmentBrand}>{item.brand}</Text>}
+              {activeItem.brand && <Text style={styles.garmentBrand}>{activeItem.brand}</Text>}
             </View>
             <View style={styles.headerActions}>
               {showSaveBtn && (
@@ -383,29 +501,48 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
             {/* Garment Hero Row: Image + Tags */}
             <View style={styles.heroRow}>
               <View style={styles.imageFrame}>
-                {item.imageUrl ? (
+                {isIntimatesItem(activeItem) ? (
+                  <IntimatesMockupBadge
+                    item={activeItem}
+                    variant="thumb"
+                    size={98}
+                    style={{ width: '100%', height: '100%', borderWidth: 0 }}
+                  />
+                ) : activeItem.imageUrl ? (
                   <Image
-                    source={{ uri: item.imageUrl }}
+                    source={{ uri: activeItem.imageUrl }}
                     style={styles.heroImage}
                     resizeMode="contain"
                   />
                 ) : (
-                  <CategoryIcon category={item.category} size={48} color={Colors.textSecondary} />
+                  <CategoryIcon category={isSockItem(activeItem) ? 'socks' : activeItem.category} size={48} color={Colors.textSecondary} />
                 )}
               </View>
 
               <View style={styles.metaCol}>
+                <StatusBadge
+                  status={draftStatus}
+                  wearCount={
+                    draftStatus === 'worn'
+                      ? activeItem.status === 'worn'
+                        ? getWornCount(activeItem)
+                        : 1
+                      : undefined
+                  }
+                  size="sm"
+                />
+
                 <View style={styles.tagPill}>
-                  <CategoryIcon category={item.category} size={13} color={Colors.textSecondary} />
-                  <Text style={styles.tagText}>{CATEGORY_LABELS[item.category]}</Text>
+                  <CategoryIcon category={activeItem.category} size={13} color={Colors.textSecondary} />
+                  <Text style={styles.tagText}>{CATEGORY_LABELS[activeItem.category]}</Text>
                 </View>
 
                 <View style={styles.tagPill}>
                   <View style={[styles.swatchDot, { backgroundColor: swatchColor }]} />
-                  <Text style={styles.tagText}>{item.color}</Text>
+                  <Text style={styles.tagText}>{activeItem.color}</Text>
                 </View>
 
-                {item.isUniformWhiteTee && (
+                {activeItem.isUniformWhiteTee && (
                   <View style={styles.uniformPill}>
                     <Text style={styles.uniformPillText}>SCHOOL UNIFORM</Text>
                   </View>
@@ -414,9 +551,11 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                 <View style={styles.wearHistoryPill}>
                   <Clock size={12} color={Colors.textTertiary} />
                   <Text style={styles.wearHistoryText}>
-                    {draftStatus === 'worn' && item.status !== 'worn'
+                    {draftStatus === 'worn' && activeItem.status !== 'worn'
                       ? 'Will be marked worn today'
-                      : formatRelativeTime(item.lastWornAt)}
+                      : activeItem.status === 'worn'
+                      ? `${formatTimes(getWornCount(activeItem))} since wash · ${formatRelativeTime(activeItem.lastWornAt)}`
+                      : formatRelativeTime(activeItem.lastWornAt)}
                   </Text>
                 </View>
               </View>
@@ -435,7 +574,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
               <View style={styles.statusRow}>
                 {ALL_STATUSES.map((st) => {
                   const active = draftStatus === st;
-                  const isOriginal = item.status === st;
+                  const isOriginal = activeItem.status === st;
                   const color = STATUS_COLORS[st];
                   return (
                     <TouchableOpacity
@@ -466,6 +605,27 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                   );
                 })}
               </View>
+
+              {/* Re-wear: only for pieces that are already worn; asks before counting another wear */}
+              {activeItem.status === 'worn' && !hasStatusChanged && (
+                <PressableScale
+                  scaleTo={0.97}
+                  onPress={() =>
+                    requestWear({
+                      items: [activeItem],
+                      onConfirm: () => wearItemAgain(activeItem.id),
+                    })
+                  }
+                  style={styles.wearAgainWrap}
+                >
+                  <View style={styles.wearAgainBtn}>
+                    <Clock size={14} color={STATUS_COLORS.worn} />
+                    <Text style={styles.wearAgainText}>
+                      Wear again · Worn {getWornCount(activeItem) + 1}x
+                    </Text>
+                  </View>
+                </PressableScale>
+              )}
             </View>
 
             {/* Quick Location Selector */}
@@ -488,7 +648,12 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                     : isCalamba
                     ? Colors.locCalamba
                     : Colors.locInTransit;
-                  const isOriginal = item.location === loc;
+                  const isOriginal = activeItem.location === loc;
+                  const rawLabel = getLocationLabel(loc);
+                  const displayLabel =
+                    loc === 'in_transit_bag' && (rawLabel === 'In-Transit Bag' || rawLabel === 'in_transit_bag')
+                      ? 'Transit Bag'
+                      : rawLabel;
 
                   return (
                     <TouchableOpacity
@@ -510,8 +675,10 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                           styles.locBtnText,
                           active && { color: '#FFFFFF', fontWeight: '700' },
                         ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
                       >
-                        {getLocationLabel(loc)}
+                        {displayLabel}
                       </Text>
                       {active && !isOriginal && (
                         <View style={styles.changeIndicatorDotLight} />
@@ -554,7 +721,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                   <View style={styles.notesBtnRow}>
                     <TouchableOpacity
                       onPress={() => {
-                        setNotesText(item.notes || '');
+                        setNotesText(activeItem.notes || '');
                         setEditingNotes(false);
                       }}
                       style={styles.notesCancelBtn}
@@ -603,8 +770,9 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                             style: 'destructive',
                             onPress: () => {
                               handleResetDrafts();
-                              onClose();
-                              onEdit(item);
+                              animateClose(() => {
+                                onEdit(activeItem);
+                              });
                             },
                           },
                           { text: 'Cancel', style: 'cancel' },
@@ -612,20 +780,22 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
                             text: 'Save & Edit Full',
                             onPress: () => {
                               handleSaveAll(false);
-                              onClose();
-                              onEdit({
-                                ...item,
-                                status: draftStatus,
-                                location: draftLocation,
-                                notes: notesText.trim(),
+                              animateClose(() => {
+                                onEdit({
+                                  ...activeItem,
+                                  status: draftStatus,
+                                  location: draftLocation,
+                                  notes: notesText.trim(),
+                                });
                               });
                             },
                           },
                         ],
                       );
                     } else {
-                      onClose();
-                      onEdit(item);
+                      animateClose(() => {
+                        onEdit(activeItem);
+                      });
                     }
                   }}
                   style={styles.actionBtnEdit}
@@ -655,6 +825,7 @@ export default function GarmentDetailSheet({ item, visible, onClose, onEdit }: P
             </View>
           </ScrollView>
         </Animated.View>
+        {rewearModal}
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -686,13 +857,14 @@ const styles = StyleSheet.create({
   },
   handleWrap: {
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    width: '100%',
   },
   handleBar: {
-    width: 38,
-    height: 4.5,
+    width: 42,
+    height: 5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(20, 20, 19, 0.2)',
+    backgroundColor: 'rgba(20, 20, 19, 0.22)',
   },
   header: {
     flexDirection: 'row',
@@ -811,6 +983,27 @@ const styles = StyleSheet.create({
   section: {
     gap: 6,
   },
+  wearAgainWrap: {
+    alignSelf: 'stretch',
+    marginTop: 2,
+  },
+  wearAgainBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 11,
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.4)',
+    backgroundColor: 'rgba(217, 119, 6, 0.08)',
+  },
+  wearAgainText: {
+    color: STATUS_COLORS.worn,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -856,23 +1049,30 @@ const styles = StyleSheet.create({
   locationRow: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
   },
   locBtn: {
     flex: 1,
+    minWidth: 0,
+    height: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
+    gap: 5,
+    paddingHorizontal: 6,
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
+    position: 'relative',
+    overflow: 'hidden',
   },
   locBtnText: {
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   notesBox: {
     backgroundColor: '#FFFFFF',
@@ -1021,11 +1221,13 @@ const styles = StyleSheet.create({
     marginLeft: 1,
   },
   changeIndicatorDotLight: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    position: 'absolute',
+    top: 5,
+    right: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
-    marginLeft: 2,
   },
   headerActions: {
     flexDirection: 'row',

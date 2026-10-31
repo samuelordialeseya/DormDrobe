@@ -46,38 +46,23 @@ export default function LiquidGlassLocationSwitch({
   const pillWidth = Math.max(0, (trackWidth - PADDING * 2) / 2);
 
   // ── Animations ────────────────────────────────────────────────────────
-  // 0 = Dorm (left), 1 = Home (right)
+  // Single source of truth: 0 = Dorm (left), 1 = Home (right)
   const slideAnim = useRef(new Animated.Value(isHome ? 1 : 0)).current;
-  const pressAnim = useRef(new Animated.Value(1)).current;
-  const dormAnim = useRef(new Animated.Value(isDorm ? 1 : 0)).current;
-  const homeAnim = useRef(new Animated.Value(isHome ? 1 : 0)).current;
+
+  // Smooth, responsive spring physics for instant, buttery sliding
+  const springTo = (toValue: number) => {
+    Animated.spring(slideAnim, {
+      toValue,
+      tension: 340,
+      friction: 26,
+      useNativeDriver,
+    }).start();
+  };
 
   useEffect(() => {
     const toValue = isHome ? 1 : 0;
-    Animated.parallel([
-      // Primary liquid slide with tuned organic spring physics
-      Animated.spring(slideAnim, {
-        toValue,
-        tension: 300,
-        friction: 24,
-        useNativeDriver,
-      }),
-      // Dorm tab content animation (scale & opacity)
-      Animated.spring(dormAnim, {
-        toValue: isDorm ? 1 : 0,
-        tension: 320,
-        friction: 26,
-        useNativeDriver,
-      }),
-      // Home tab content animation (scale & opacity)
-      Animated.spring(homeAnim, {
-        toValue: isHome ? 1 : 0,
-        tension: 320,
-        friction: 26,
-        useNativeDriver,
-      }),
-    ]).start();
-  }, [currentLocation]);
+    springTo(toValue);
+  }, [isHome, useNativeDriver]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -86,22 +71,11 @@ export default function LiquidGlassLocationSwitch({
     }
   };
 
-  const handlePressIn = () => {
-    Animated.spring(pressAnim, {
-      toValue: 0.95,
-      tension: 400,
-      friction: 25,
-      useNativeDriver,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(pressAnim, {
-      toValue: 1,
-      tension: 350,
-      friction: 20,
-      useNativeDriver,
-    }).start();
+  const handleSelect = (loc: Location) => {
+    if (loc === currentLocation) return;
+    // Optimistic instant spring on tap — zero latency, ultra-fluid response
+    springTo(loc === 'calamba_home' ? 1 : 0);
+    onChange(loc);
   };
 
   // Interpolated sliding pill translation
@@ -110,45 +84,61 @@ export default function LiquidGlassLocationSwitch({
     outputRange: [0, pillWidth],
   });
 
-  // Liquid squash & stretch (elongates horizontally mid-flight)
-  const stretchX = slideAnim.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [1, 1.07, 1.12, 1.07, 1],
-  });
-
-  // Vertical volume-conservation compression mid-flight
-  const compressY = slideAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 0.93, 1],
-  });
-
-  // Segment text & icon scale interpolations
-  const dormScale = dormAnim.interpolate({
+  // Segment text, icon & indicator interpolations driven directly by slideAnim
+  const dormScale = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.93, 1],
+    outputRange: [1, 0.95],
+    extrapolate: 'clamp',
   });
-  const dormOpacity = dormAnim.interpolate({
+  const dormOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.55],
+    extrapolate: 'clamp',
+  });
+  const dormActiveOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const dormInactiveOpacity = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const dormDotScale = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const homeScale = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.95, 1],
+    extrapolate: 'clamp',
+  });
+  const homeOpacity = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.55, 1],
+    extrapolate: 'clamp',
   });
-
-  const homeScale = homeAnim.interpolate({
+  const homeActiveOpacity = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.93, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
   });
-  const homeOpacity = homeAnim.interpolate({
+  const homeInactiveOpacity = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.55, 1],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const homeDotScale = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.outerContainer,
-        { transform: [{ scale: pressAnim }] },
-        style,
-      ]}
-    >
+    <View style={[styles.outerContainer, style]}>
       <View style={styles.glassTrack} onLayout={handleLayout}>
         {/* Top bevel specular edge for liquid glass refraction */}
         <View style={styles.trackSpecular} />
@@ -160,11 +150,7 @@ export default function LiquidGlassLocationSwitch({
               styles.liquidPill,
               {
                 width: pillWidth,
-                transform: [
-                  { translateX },
-                  { scaleX: stretchX },
-                  { scaleY: compressY },
-                ],
+                transform: [{ translateX }],
               },
             ]}
           >
@@ -175,10 +161,9 @@ export default function LiquidGlassLocationSwitch({
 
         {/* Dorm Option Button */}
         <TouchableOpacity
-          onPress={() => onChange('batangas_dorm')}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          activeOpacity={0.85}
+          onPress={() => handleSelect('batangas_dorm')}
+          delayPressIn={0}
+          activeOpacity={0.82}
           accessibilityRole="button"
           accessibilityLabel="Switch location to Dorm"
           accessibilityState={{ selected: isDorm }}
@@ -194,19 +179,25 @@ export default function LiquidGlassLocationSwitch({
               },
             ]}
           >
-            <LocationIcon
-              location="batangas_dorm"
-              size={13}
-              color={isDorm ? Colors.locBatangas : Colors.textTertiary}
-              weight={isDorm ? 'regular' : 'light'}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                isDorm ? styles.segmentTextActive : styles.segmentTextInactive,
-              ]}
-              numberOfLines={1}
-            >
+            <View style={styles.iconStack}>
+              <Animated.View style={[styles.iconLayer, { opacity: dormInactiveOpacity }]}>
+                <LocationIcon
+                  location="batangas_dorm"
+                  size={13}
+                  color={Colors.textSecondary}
+                  weight="light"
+                />
+              </Animated.View>
+              <Animated.View style={[styles.iconLayer, { opacity: dormActiveOpacity }]}>
+                <LocationIcon
+                  location="batangas_dorm"
+                  size={13}
+                  color={Colors.locBatangas}
+                  weight="regular"
+                />
+              </Animated.View>
+            </View>
+            <Text style={styles.segmentText} numberOfLines={1}>
               {dormText}
             </Text>
             <Animated.View
@@ -214,8 +205,8 @@ export default function LiquidGlassLocationSwitch({
                 styles.activeDot,
                 {
                   backgroundColor: Colors.locBatangas,
-                  opacity: dormAnim,
-                  transform: [{ scale: dormAnim }],
+                  opacity: dormActiveOpacity,
+                  transform: [{ scale: dormDotScale }],
                 },
               ]}
             />
@@ -224,10 +215,9 @@ export default function LiquidGlassLocationSwitch({
 
         {/* Home Option Button */}
         <TouchableOpacity
-          onPress={() => onChange('calamba_home')}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          activeOpacity={0.85}
+          onPress={() => handleSelect('calamba_home')}
+          delayPressIn={0}
+          activeOpacity={0.82}
           accessibilityRole="button"
           accessibilityLabel="Switch location to Home"
           accessibilityState={{ selected: isHome }}
@@ -243,19 +233,25 @@ export default function LiquidGlassLocationSwitch({
               },
             ]}
           >
-            <LocationIcon
-              location="calamba_home"
-              size={13}
-              color={isHome ? Colors.locCalamba : Colors.textTertiary}
-              weight={isHome ? 'regular' : 'light'}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                isHome ? styles.segmentTextActive : styles.segmentTextInactive,
-              ]}
-              numberOfLines={1}
-            >
+            <View style={styles.iconStack}>
+              <Animated.View style={[styles.iconLayer, { opacity: homeInactiveOpacity }]}>
+                <LocationIcon
+                  location="calamba_home"
+                  size={13}
+                  color={Colors.textSecondary}
+                  weight="light"
+                />
+              </Animated.View>
+              <Animated.View style={[styles.iconLayer, { opacity: homeActiveOpacity }]}>
+                <LocationIcon
+                  location="calamba_home"
+                  size={13}
+                  color={Colors.locCalamba}
+                  weight="regular"
+                />
+              </Animated.View>
+            </View>
+            <Text style={styles.segmentText} numberOfLines={1}>
               {homeText}
             </Text>
             <Animated.View
@@ -263,15 +259,15 @@ export default function LiquidGlassLocationSwitch({
                 styles.activeDot,
                 {
                   backgroundColor: Colors.locCalamba,
-                  opacity: homeAnim,
-                  transform: [{ scale: homeAnim }],
+                  opacity: homeActiveOpacity,
+                  transform: [{ scale: homeDotScale }],
                 },
               ]}
             />
           </Animated.View>
         </TouchableOpacity>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -344,17 +340,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
   },
+  iconStack: {
+    width: 13,
+    height: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   segmentText: {
     fontSize: 11.5,
     letterSpacing: 0.15,
-  },
-  segmentTextActive: {
     color: Colors.textPrimary,
     fontWeight: '600',
-  },
-  segmentTextInactive: {
-    color: Colors.textTertiary,
-    fontWeight: '500',
   },
   activeDot: {
     width: 4,

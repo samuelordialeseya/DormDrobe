@@ -1,11 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Image } from 'react-native';
-import { ClothingItem, Status } from '../types/wardrobe';
+import { ClothingItem, Status, isSockItem, isIntimatesItem } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
+import IntimatesMockupBadge from './IntimatesMockupBadge';
 import { Colors, Radii, Spacing } from '../theme/theme';
 import { CategoryIcon, LocationIcon, Check } from './AppIcons';
 import { useWardrobe } from '../context/WardrobeContext';
+import { useRewearPrompt } from './RewearPromptModal';
 
 interface Props {
   item: ClothingItem;
@@ -72,27 +74,31 @@ export default function ClothingCard({
   showQuickAction = false,
   hideLocation = false,
 }: Props) {
-  const { getLocationLabel, advanceItemStatus } = useWardrobe();
-  // Entrance animation
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(12)).current;
+  const { getLocationLabel, advanceItemStatus, wearItemAgain } = useWardrobe();
+  const { requestWear, rewearModal } = useRewearPrompt();
+  // Entrance animation: immediate if delay is 0/undefined, crisp entrance if staggered
+  const hasDelay = typeof delay === 'number' && delay > 0;
+  const opacity = useRef(new Animated.Value(hasDelay ? 0 : 1)).current;
+  const translateY = useRef(new Animated.Value(hasDelay ? 8 : 0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 280,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        delay,
-        tension: 260,
-        friction: 26,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (hasDelay) {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 150,
+          delay,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          delay,
+          tension: 280,
+          friction: 24,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
   }, []);
 
   // Selection pulse animation
@@ -127,7 +133,14 @@ export default function ClothingCard({
         {/* Thumbnail */}
         <View style={[styles.thumb, selected && styles.thumbSelected]}>
           <View style={styles.thumbInner}>
-            {item.imageUrl ? (
+            {isIntimatesItem(item) ? (
+              <IntimatesMockupBadge
+                item={item}
+                variant="thumb"
+                size={56}
+                style={{ width: '100%', height: '100%', borderWidth: 0, backgroundColor: 'transparent' }}
+              />
+            ) : item.imageUrl ? (
               <Image
                 source={{ uri: item.imageUrl }}
                 style={styles.thumbImg}
@@ -135,8 +148,8 @@ export default function ClothingCard({
               />
             ) : (
               <CategoryIcon
-                category={item.category}
-                size={28}
+                category={isSockItem(item) ? 'socks' : item.category}
+                size={24}
                 color={Colors.textSecondary}
               />
             )}
@@ -182,7 +195,7 @@ export default function ClothingCard({
           )}
 
           <View style={styles.footer}>
-            <StatusBadge status={item.status} size="sm" />
+            <StatusBadge status={item.status} wearCount={item.wearCount} size="sm" />
             {!hideLocation && (
               <View
                 style={[
@@ -205,30 +218,82 @@ export default function ClothingCard({
         </View>
 
         {/* 1-tap status action (Wear / To Laundry / Mark Clean) */}
-        {quick && (
-          <PressableScale
-            onPress={() => advanceItemStatus(item.id)}
-            scaleTo={0.92}
-            style={styles.quickWrap}
-          >
-            <View
-              style={[
-                styles.quickBtn,
-                quick.filled
-                  ? { backgroundColor: quick.color, borderColor: quick.color }
-                  : { backgroundColor: quick.color + '12', borderColor: quick.color + '55' },
-              ]}
+        {quick && item.status === 'worn' ? (
+          // Worn pieces: re-wear (asks first) or send to laundry
+          <View style={styles.quickStack}>
+            <PressableScale
+              onPress={() =>
+                requestWear({
+                  items: [item],
+                  onConfirm: () => wearItemAgain(item.id),
+                })
+              }
+              scaleTo={0.92}
+              style={styles.quickWrapStacked}
             >
-              <Text
-                style={[styles.quickBtnText, { color: quick.filled ? '#FFFFFF' : quick.color }]}
-                numberOfLines={1}
+              <View
+                style={[
+                  styles.quickBtn,
+                  styles.quickBtnCompact,
+                  {
+                    backgroundColor: Colors.statusWorn + '12',
+                    borderColor: Colors.statusWorn + '55',
+                  },
+                ]}
               >
-                {quick.label}
-              </Text>
-            </View>
-          </PressableScale>
+                <Text style={[styles.quickBtnText, { color: Colors.statusWorn }]} numberOfLines={1}>
+                  Wear again
+                </Text>
+              </View>
+            </PressableScale>
+            <PressableScale
+              onPress={() => advanceItemStatus(item.id)}
+              scaleTo={0.92}
+              style={styles.quickWrapStacked}
+            >
+              <View
+                style={[
+                  styles.quickBtn,
+                  styles.quickBtnCompact,
+                  {
+                    backgroundColor: quick.color + '12',
+                    borderColor: quick.color + '55',
+                  },
+                ]}
+              >
+                <Text style={[styles.quickBtnText, { color: quick.color }]} numberOfLines={1}>
+                  {quick.label}
+                </Text>
+              </View>
+            </PressableScale>
+          </View>
+        ) : (
+          quick && (
+            <PressableScale
+              onPress={() => advanceItemStatus(item.id)}
+              scaleTo={0.92}
+              style={styles.quickWrap}
+            >
+              <View
+                style={[
+                  styles.quickBtn,
+                  quick.filled
+                    ? { backgroundColor: quick.color, borderColor: quick.color }
+                    : { backgroundColor: quick.color + '12', borderColor: quick.color + '55' },
+                ]}
+              >
+                <Text
+                  style={[styles.quickBtnText, { color: quick.filled ? '#FFFFFF' : quick.color }]}
+                  numberOfLines={1}
+                >
+                  {quick.label}
+                </Text>
+              </View>
+            </PressableScale>
+          )
         )}
       </PressableScale>
+      {item.status === 'worn' && rewearModal}
     </Animated.View>
   );
 }
@@ -237,9 +302,9 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: Radii.xl,
-    padding: Spacing.md,
-    marginBottom: 10,
+    borderRadius: Radii.lg,
+    padding: 10,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
     position: 'relative',
@@ -265,13 +330,13 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   thumb: {
-    width: 68,
-    height: 68,
-    borderRadius: Radii.lg,
+    width: 56,
+    height: 56,
+    borderRadius: Radii.md,
     backgroundColor: Colors.bgSubtle,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    marginRight: 14,
+    marginRight: 12,
     marginLeft: 0,
     position: 'relative',
     overflow: 'visible',
@@ -280,35 +345,35 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
   thumbInner: {
-    width: 68,
-    height: 68,
-    borderRadius: Radii.lg - 1,
+    width: 56,
+    height: 56,
+    borderRadius: Radii.md - 1,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.bgSubtle,
   },
   thumbImg: {
-    width: 68,
-    height: 68,
+    width: 56,
+    height: 56,
   },
   colorSwatch: {
     position: 'absolute',
-    bottom: -5,
-    right: -5,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    bottom: -4,
+    right: -4,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   checkbox: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    top: -5,
+    right: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: 'rgba(0,0,0,0.18)',
     backgroundColor: '#FFFFFF',
@@ -327,7 +392,7 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingVertical: 2,
+    paddingVertical: 1,
   },
   nameRow: {
     flexDirection: 'row',
@@ -337,7 +402,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: Colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.2,
     flexShrink: 1,
@@ -358,7 +423,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11.5,
     letterSpacing: -0.1,
   },
   footer: {
@@ -366,14 +431,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
   locBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 2.5,
+    paddingVertical: 2,
     borderRadius: Radii.pill,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -385,19 +450,31 @@ const styles = StyleSheet.create({
   },
   quickWrap: {
     alignSelf: 'center',
-    marginLeft: 10,
+    marginLeft: 8,
+  },
+  quickStack: {
+    alignSelf: 'center',
+    marginLeft: 8,
+    gap: 5,
+  },
+  quickWrapStacked: {
+    alignSelf: 'stretch',
+  },
+  quickBtnCompact: {
+    height: 26,
+    minWidth: 82,
   },
   quickBtn: {
-    minWidth: 78,
-    height: 34,
-    paddingHorizontal: 12,
+    minWidth: 72,
+    height: 30,
+    paddingHorizontal: 10,
     borderRadius: Radii.pill,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickBtnText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     letterSpacing: 0.1,
   },

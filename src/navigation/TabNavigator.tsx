@@ -14,6 +14,7 @@ export default function TabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Home"
+      backBehavior="history"
       tabBar={(props) => <LiquidGlassTabBar {...props} />}
       screenOptions={{
         headerShown: false,

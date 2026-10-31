@@ -99,7 +99,8 @@ DormDrobe's core mechanism: the barrier to wardrobe tracking is effortless (1-ta
 
 ### Fit Studio & Live Lookbook
 
-- **Multi-Row Outfit Mixer:** Configurable 2-, 3-, or 4-row horizontal swiper (Tops, Bottoms, Footwear, Accessories)
+- **Multi-Row Outfit Mixer:** Configurable 2P, 3P, 4P, 5P, or 6P horizontal swiper (Tops, Bottoms, Footwear, Accessories, Socks, Undergarments)
+- **Discreet Intimates Apparel Mockup Badges:** Discreet, refined mockup badges with vector logo emblems (`SockIcon`, `UnderwearBriefsIcon`), prominent names, brands, and color swatches for socks and undergarments, replacing raw photos across Fit Generator swipers, Lookbook collages, Wear Log, and Closet cards
 - **Kinetic Dice Randomizer:** Roll the dice for instant randomized, color-coordinated outfit combinations
 - **Live Availability Badges:** Real-time validation badges (*"Ready at Dorm"* vs *"Piece in Laundry"* vs *"At Home"*)
 - **"Wear Today" Action:** 1-tap logs the outfit into Wear History, increments wear counters, and updates piece conditions to `worn`

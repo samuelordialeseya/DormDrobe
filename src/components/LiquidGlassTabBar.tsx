@@ -14,6 +14,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Home, Shirt, Sparkles, Settings } from './AppIcons';
 import { Colors, Radii } from '../theme/theme';
+import { useWardrobe } from '../context/WardrobeContext';
 
 type TabDef = {
   name: string;
@@ -99,6 +100,7 @@ export default function LiquidGlassTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
+  const { isWearWizardSession } = useWardrobe();
 
   // Filter only declared tabs for the liquid glass bar
   const visibleRoutes = state.routes.filter((route) =>
@@ -167,6 +169,10 @@ export default function LiquidGlassTabBar({
     inputRange: [0, 1],
     outputRange: [1, 0.94],
   });
+
+  if (isWearWizardSession) {
+    return null;
+  }
 
   return (
     <View

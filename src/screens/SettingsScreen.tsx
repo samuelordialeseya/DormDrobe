@@ -62,7 +62,7 @@ export default function SettingsScreen() {
     updateLocationNames({
       batangas_dorm: dormName.trim() || 'Batangas Dorm',
       calamba_home: homeName.trim() || 'Calamba Home',
-      in_transit_bag: bagName.trim() || 'In-Transit Bag',
+      in_transit_bag: bagName.trim() || 'Transit Bag',
     });
     showToast({ message: 'Custom location names saved!', type: 'success' });
   };
@@ -182,15 +182,17 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <FadeSlideIn delay={0} fromY={12}>
-            <View style={styles.header}>
-              <Text style={styles.title}>Settings</Text>
-              <Text style={styles.subtitle}>Privacy, backups & storage architecture</Text>
-            </View>
-          </FadeSlideIn>
+        {/* Anchored Header — Native iOS feel, never scrolls away */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtitle}>Privacy, backups & storage architecture</Text>
+        </View>
 
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+        >
           {/* 100% On-Device Privacy Card (Tarsi Model) */}
           <FadeSlideIn delay={60} fromY={16}>
             <View style={[styles.card, styles.privacyCard]}>
@@ -475,12 +477,15 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
     paddingBottom: 120,
   },
   header: {
-    paddingHorizontal: Spacing.xs,
-    paddingTop: Spacing.md,
-    marginBottom: Spacing.xl,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.bgBase,
+    zIndex: 10,
   },
   title: {
     color: Colors.textPrimary,

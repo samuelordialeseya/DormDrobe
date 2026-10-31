@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
@@ -44,8 +46,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const CATEGORY_OPTIONS: (Category | null)[] = [
-  null,
+// Tap the active chip again to clear it, so there is no separate "All Types" chip.
+const CATEGORY_OPTIONS: Category[] = [
   'tops',
   'bottoms',
   'outerwear',
@@ -54,12 +56,41 @@ const CATEGORY_OPTIONS: (Category | null)[] = [
   'accessories',
 ];
 
-const ZONES: { key: ClosetSubTab; label: string; color: string }[] = [
-  { key: 'all', label: 'All Clothes', color: Colors.accent },
-  { key: 'clean', label: 'Clean', color: Colors.statusClean },
-  { key: 'laundry', label: 'Laundry', color: Colors.statusWorn },
-  { key: 'bag', label: 'In Bag', color: Colors.locInTransit },
+const ZONES: { key: ClosetSubTab; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'clean', label: 'Clean' },
+  { key: 'laundry', label: 'Laundry' },
+  { key: 'bag', label: 'In Bag' },
 ];
+
+/** Quiet 36px circular icon button (44px touch target via hitSlop). One may be `primary`. */
+function IconButton({
+  label,
+  onPress,
+  icon,
+  primary = false,
+  active = false,
+}: {
+  label: string;
+  onPress: () => void;
+  icon: (color: string) => React.ReactNode;
+  primary?: boolean;
+  active?: boolean;
+}) {
+  const filled = primary || active;
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress}
+      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+      style={[styles.iconBtn, filled && styles.iconBtnFilled]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      {icon(filled ? '#FFFFFF' : Colors.textPrimary)}
+    </TouchableOpacity>
+  );
+}
 
 type PackFilter = 'clean' | 'dirty' | 'all';
 
@@ -95,6 +126,8 @@ export default function ClosetScreen() {
   const [uniformOnly, setUniformOnly] = useState(false);
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<any>(null);
 
   const selectedItem = useMemo(
     () => items.find((it) => it.id === selectedItemId) ?? null,
@@ -125,17 +158,67 @@ export default function ClosetScreen() {
   useFocusEffect(
     useCallback(() => {
       setShowAllPlaces(false);
-      // If we returned to Closet from tab bar and are stuck in bag without an explicit route param, reset to 'all'
-      if (closetTab === 'bag' && !route.params?.zone) {
-        setClosetTab('all');
-      }
-    }, [closetTab, route.params?.zone]),
+    }, []),
   );
 
   // A checklist from another location is meaningless — start fresh when the location changes
   useEffect(() => {
     setSelectedIds(new Set());
   }, [currentLocation]);
+
+  // ── Smooth Sliding Tab Indicator Physics (Zero Latency) ─────────
+  const { width: windowWidth } = useWindowDimensions();
+  const screenWidth = Math.min(windowWidth, 390);
+  const [rowWidth, setRowWidth] = useState(screenWidth);
+
+  // Available inner width for the 4 tabs inside zoneRow (paddingHorizontal: 16 on each side)
+  const innerWidth = Math.max(120, rowWidth - Spacing.lg * 2);
+  const tabWidth = innerWidth / ZONES.length;
+  const indicatorWidth = Math.round(Math.max(28, tabWidth - 26));
+
+  const getIndicatorX = useCallback(
+    (idx: number) => {
+      const safeIdx = Math.max(0, Math.min(idx, ZONES.length - 1));
+      return Spacing.lg + safeIdx * tabWidth + (tabWidth - indicatorWidth) / 2;
+    },
+    [tabWidth, indicatorWidth],
+  );
+
+  const activeZoneIndex = Math.max(0, ZONES.findIndex((z) => z.key === closetTab));
+  const indicatorAnim = useRef(new Animated.Value(getIndicatorX(activeZoneIndex))).current;
+  const stretchAnim = useRef(new Animated.Value(0)).current;
+  const prevZoneRef = useRef(closetTab);
+
+  useEffect(() => {
+    const targetIdx = Math.max(0, ZONES.findIndex((z) => z.key === closetTab));
+    const targetX = getIndicatorX(targetIdx);
+    const changed = prevZoneRef.current !== closetTab;
+    prevZoneRef.current = closetTab;
+
+    Animated.spring(indicatorAnim, {
+      toValue: targetX,
+      tension: 340,
+      friction: 28,
+      useNativeDriver: true,
+    }).start();
+
+    if (changed) {
+      stretchAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(stretchAnim, {
+          toValue: 1,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.spring(stretchAnim, {
+          toValue: 0,
+          tension: 300,
+          friction: 22,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [closetTab, getIndicatorX]);
 
   // ── Zones ────────────────────────────────────────────────────────
   const zoneItems = useMemo(() => {
@@ -321,15 +404,26 @@ export default function ClosetScreen() {
 
   const switchZone = (zone: ClosetSubTab) => {
     if (zone === closetTab) return;
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setClosetTab(zone);
   };
 
   const resetFilters = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSearchQuery('');
+    setIsSearchOpen(false);
     setSelectedCategory(null);
     setUniformOnly(false);
+  };
+
+  const toggleSearch = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (isSearchOpen || searchQuery.length > 0) {
+      setSearchQuery('');
+      setIsSearchOpen(false);
+    } else {
+      setIsSearchOpen(true);
+      setTimeout(() => searchInputRef.current?.focus(), 60);
+    }
   };
 
   // ── Loading ──────────────────────────────────────────────────────
@@ -411,7 +505,7 @@ export default function ClosetScreen() {
                 selectable
                 selected={selectedIds.has(item.id)}
                 onToggleSelect={() => toggleSelect(item.id)}
-                delay={Math.min(index * 30, 200)}
+                delay={0}
                 hideLocation
               />
             )}
@@ -447,329 +541,394 @@ export default function ClosetScreen() {
 
   // ── Normal closet ────────────────────────────────────────────────
   const hideLocationBadge = closetTab === 'bag' || (!showAllPlaces && closetTab !== 'all');
+  const showSearchBar = isSearchOpen || searchQuery.length > 0;
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Header */}
-        <FadeSlideIn delay={0} fromY={-10}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>My Closet</Text>
-              <Text style={styles.subtitle}>
-                {showAllPlaces
-                  ? `${items.length} pieces across all locations`
-                  : `${zoneItems.all.length} pieces at ${place} · ${zoneItems.bag.length} in bag`}
-              </Text>
-            </View>
-            <PressableScale onPress={() => navigation.navigate('Add', { editItem: undefined })} scaleTo={0.92}>
-              <View style={styles.addBtn}>
-                <Plus size={13} color="#FFFFFF" strokeWidth={2.4} />
-                <Text style={styles.addBtnText}>Add</Text>
-              </View>
-            </PressableScale>
-          </View>
-        </FadeSlideIn>
-
-        {/* Where am I + start packing */}
-        <FadeSlideIn delay={30} fromY={8}>
-          <View style={styles.locationRow}>
-            <LiquidGlassLocationSwitch
-              currentLocation={currentLocation}
-              onChange={setCurrentLocation}
-            />
-            <PressableScale onPress={() => startPackingSession('clean')} scaleTo={0.94}>
-              <View style={styles.packBtn}>
-                <Luggage size={15} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.packBtnText}>Pack Bag</Text>
-              </View>
-            </PressableScale>
-          </View>
-        </FadeSlideIn>
-
-        {/* The 4 zones */}
-        <FadeSlideIn delay={60} fromY={8}>
-          <View style={styles.zoneRow}>
-            {ZONES.map((z) => {
-              const active = z.key === closetTab;
-              return (
-                <TouchableOpacity
-                  key={z.key}
-                  activeOpacity={0.8}
-                  onPress={() => switchZone(z.key)}
-                  style={[
-                    styles.zoneTile,
-                    active && [styles.zoneTileActive, { borderColor: z.color }],
-                  ]}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.zoneCount, { color: active ? z.color : Colors.textSecondary }]}>
-                    {zoneItems[z.key].length}
-                  </Text>
-                  <Text style={[styles.zoneLabel, active && { color: Colors.textPrimary, fontWeight: '700' }]}>
-                    {z.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={styles.scopeRow}>
-            {closetTab === 'bag' ? (
-              <View style={styles.scopeRowInner}>
-                <Text style={styles.scopeText}>
-                  {zoneItems.bag.length} piece{zoneItems.bag.length === 1 ? '' : 's'} packed in bag
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => switchZone('all')}
-                >
-                  <Text style={styles.scopeLink}>View all clothes ({items.length}) →</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.scopeText} numberOfLines={1}>
+        <ScrollView
+          stickyHeaderIndices={[1]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 90, 130) }}
+        >
+          {/* Child [0]: Collapsible top area (title row + location row + zone actions) */}
+          <View style={styles.topScrollableHeader}>
+            {/* Row 1: Title + count, global actions as quiet icon buttons */}
+            <View style={styles.header}>
+              <View style={styles.headerTitleWrap}>
+                <Text style={styles.title}>My Closet</Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
                   {showAllPlaces
-                    ? `Showing all locations (${items.length} pieces)`
-                    : `Showing ${place} (${zoneItems.all.length})`}
+                    ? `${items.length} pieces across all places`
+                    : `${zoneItems.all.length} pieces at ${place}`}
                 </Text>
+              </View>
+              <View style={styles.headerActions}>
+                <IconButton
+                  label={showSearchBar ? 'Close search' : 'Search closet'}
+                  active={showSearchBar}
+                  onPress={toggleSearch}
+                  icon={(color) => <Search size={16} color={color} strokeWidth={2.2} />}
+                />
+                <IconButton
+                  label="Pack bag"
+                  onPress={() => startPackingSession('clean')}
+                  icon={(color) => <Luggage size={16} color={color} strokeWidth={2.2} />}
+                />
+                <IconButton
+                  label="Add clothing"
+                  primary
+                  onPress={() => navigation.navigate('Add', { editItem: undefined })}
+                  icon={(color) => <Plus size={16} color={color} strokeWidth={2.4} />}
+                />
+              </View>
+            </View>
+
+            {/* Row 2: Where am I + quiet "show all places" toggle */}
+            <View style={styles.locationRow}>
+              <LiquidGlassLocationSwitch
+                currentLocation={currentLocation}
+                onChange={setCurrentLocation}
+              />
+              {closetTab !== 'bag' && (
                 <TouchableOpacity
-                  activeOpacity={0.7}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   onPress={() => {
                     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                     setShowAllPlaces((v) => !v);
                   }}
+                  style={styles.allPlacesLinkWrap}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: showAllPlaces }}
                 >
-                  <Text style={styles.scopeLink}>
-                    {showAllPlaces ? `Back to ${place}` : `Show all locations (${items.length})`}
+                  <Text
+                    style={[styles.allPlacesLink, showAllPlaces && styles.allPlacesLinkActive]}
+                    numberOfLines={1}
+                  >
+                    {showAllPlaces ? 'Showing all places' : 'Show all places'}
                   </Text>
+                  {showAllPlaces && <X size={12} color={Colors.textPrimary} strokeWidth={2.4} />}
                 </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </FadeSlideIn>
+              )}
+            </View>
 
-        {/* Search */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchWrap}>
-            <Search size={16} color={Colors.textTertiary} strokeWidth={2} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by name, brand, color…"
-              placeholderTextColor={Colors.textTertiary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <X size={15} color={Colors.textTertiary} strokeWidth={2.2} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
 
-        {/* Category + uniform quick filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryRow}
-          style={styles.categoryScroll}
-        >
-          {CATEGORY_OPTIONS.map((cat) => {
-            const active = cat === selectedCategory;
-            return (
+          </View>
+
+          {/* Child [1]: Sticky filter bar (zone tabs + category chips + optional search) */}
+          <View style={styles.stickyBar}>
+            {/* Zone tabs: flat text tab bar with smooth sliding underline */}
+            <View
+              style={styles.zoneRow}
+              accessibilityRole="tablist"
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0 && Math.abs(w - rowWidth) > 1) {
+                  setRowWidth(w);
+                }
+              }}
+            >
+              {ZONES.map((z) => {
+                const active = z.key === closetTab;
+                const count = zoneItems[z.key].length;
+                return (
+                  <TouchableOpacity
+                    key={z.key}
+                    activeOpacity={0.7}
+                    delayPressIn={0}
+                    onPress={() => switchZone(z.key)}
+                    style={styles.zoneTab}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text
+                      style={[styles.zoneLabel, active && styles.zoneLabelActive]}
+                      numberOfLines={1}
+                    >
+                      {z.label}
+                      {count > 0 ? (
+                        <Text style={[styles.zoneCount, active && styles.zoneCountActive]}>
+                          {`  ${count}`}
+                        </Text>
+                      ) : null}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <Animated.View
+                style={[
+                  styles.slidingUnderline,
+                  {
+                    width: indicatorWidth,
+                    transform: [{ translateX: indicatorAnim }],
+                  },
+                ]}
+                pointerEvents="none"
+              />
+            </View>
+
+            {/* Category chips (tap the active chip again to clear it) */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryRow}
+              style={styles.categoryScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {hasActiveFilters && (
+                <TouchableOpacity
+                  activeOpacity={0.6}
+                  onPress={resetFilters}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  style={styles.clearFiltersBtn}
+                  accessibilityLabel="Clear all filters"
+                >
+                  <X size={12} color={Colors.textSecondary} strokeWidth={2.4} />
+                  <Text style={styles.clearFiltersText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+
+              {CATEGORY_OPTIONS.map((cat) => {
+                const active = cat === selectedCategory;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    activeOpacity={0.75}
+                    onPress={() => setSelectedCategory((prev) => (prev === cat ? null : cat))}
+                    style={[styles.categoryChip, active && styles.categoryChipActive]}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <CategoryIcon
+                      category={cat}
+                      size={13}
+                      color={active ? '#FFFFFF' : Colors.textSecondary}
+                      weight={active ? 'bold' : 'regular'}
+                    />
+                    <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
+                      {CATEGORY_LABELS[cat]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
               <TouchableOpacity
-                key={String(cat)}
                 activeOpacity={0.75}
-                onPress={() => setSelectedCategory((prev) => (cat === null || prev === cat ? null : cat))}
-                style={[styles.categoryChip, active && styles.categoryChipActive]}
+                onPress={() => setUniformOnly((v) => !v)}
+                style={[styles.categoryChip, uniformOnly && styles.uniformChipActive]}
+                accessibilityState={{ selected: uniformOnly }}
               >
-                {cat && (
-                  <CategoryIcon
-                    category={cat}
-                    size={14}
-                    color={active ? '#FFFFFF' : Colors.textSecondary}
-                    weight={active ? 'bold' : 'regular'}
-                  />
-                )}
-                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
-                  {cat ? CATEGORY_LABELS[cat] : 'All Types'}
+                <Shirt
+                  size={13}
+                  color={uniformOnly ? Colors.locBatangas : Colors.textSecondary}
+                  weight={uniformOnly ? 'bold' : 'regular'}
+                />
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    uniformOnly && { color: Colors.locBatangas },
+                  ]}
+                >
+                  Uniform
                 </Text>
               </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() => setUniformOnly((v) => !v)}
-            style={[styles.categoryChip, uniformOnly && styles.uniformChipActive]}
-          >
-            <Shirt
-              size={14}
-              color={uniformOnly ? Colors.locBatangas : Colors.textSecondary}
-              weight={uniformOnly ? 'bold' : 'regular'}
-            />
-            <Text
-              style={[
-                styles.categoryChipText,
-                uniformOnly && { color: Colors.locBatangas },
-              ]}
-            >
-              Uniform
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+            </ScrollView>
 
-        {/* Zone-specific actions */}
-        {closetTab === 'laundry' && zoneItems.laundry.length > 0 && (
-          <View style={styles.actionBar}>
-            <View style={styles.actionBarRow}>
-              <PressableScale onPress={handleWornToLaundry} scaleTo={0.95} style={{ flex: 1 }}>
-                <View style={[styles.actionBtn, wornDisplayed.length === 0 && styles.actionBtnIdle]}>
-                  <Waves size={14} color={Colors.statusLaundry} strokeWidth={2.2} />
-                  <Text style={[styles.actionBtnText, { color: Colors.statusLaundry }]} numberOfLines={1}>
-                    Worn → Laundry ({wornDisplayed.length})
-                  </Text>
-                </View>
-              </PressableScale>
-              <PressableScale onPress={handleWashAll} scaleTo={0.95} style={{ flex: 1 }}>
-                <View style={[styles.actionBtn, styles.actionBtnClean, displayed.length === 0 && styles.actionBtnIdle]}>
-                  <Check size={14} color="#FFFFFF" strokeWidth={2.6} />
-                  <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]} numberOfLines={1}>
-                    Wash all → Clean ({displayed.length})
-                  </Text>
-                </View>
-              </PressableScale>
-            </View>
-            <TouchableOpacity activeOpacity={0.7} onPress={() => startPackingSession('dirty')}>
-              <Text style={styles.actionLink}>Bringing dirty laundry home? Pack it in the bag →</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {closetTab === 'bag' && zoneItems.bag.length > 0 && (
-          <View style={styles.actionBar}>
-            <PressableScale onPress={requestUnpack} scaleTo={0.97}>
-              <View style={styles.unpackBtn}>
-                <Luggage size={17} color="#FFFFFF" strokeWidth={2.2} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.unpackBtnText}>Unpack to {place}</Text>
-                  <Text style={styles.unpackBtnSub}>
-                    {zoneItems.bag.length - bagDirtyCount} clean · {bagDirtyCount} worn / dirty
-                  </Text>
+            {/* Search input: only while open or a query is active */}
+            {showSearchBar && (
+              <View style={styles.searchRow}>
+                <View style={styles.searchWrap}>
+                  <Search
+                    size={15}
+                    color={Colors.textTertiary}
+                    strokeWidth={2}
+                    style={{ marginRight: 7 }}
+                  />
+                  <TextInput
+                    ref={searchInputRef}
+                    style={styles.searchInput}
+                    placeholder="Search by name, brand, color…"
+                    placeholderTextColor={Colors.textTertiary}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (searchQuery.length > 0) {
+                        setSearchQuery('');
+                      } else {
+                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                        setIsSearchOpen(false);
+                      }
+                    }}
+                    style={styles.clearBtn}
+                    accessibilityLabel={searchQuery.length > 0 ? 'Clear search text' : 'Close search'}
+                  >
+                    <X size={14} color={Colors.textTertiary} strokeWidth={2.2} />
+                  </TouchableOpacity>
                 </View>
               </View>
-            </PressableScale>
-            <TouchableOpacity activeOpacity={0.7} onPress={() => startPackingSession('clean')}>
-              <Text style={styles.actionLink}>+ Pack more clothes</Text>
-            </TouchableOpacity>
+            )}
           </View>
-        )}
 
-        {/* List */}
-        <FlatList
-          data={displayed}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <ClothingCard
-              item={item}
-              delay={Math.min(index * 30, 200)}
-              onPress={() => setSelectedItemId(item.id)}
-              showQuickAction={closetTab !== 'bag'}
-              hideLocation={hideLocationBadge}
-            />
-          )}
-          contentContainerStyle={[styles.list, { paddingBottom: Math.max(insets.bottom + 90, 130) }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <FadeSlideIn delay={150}>
-              <View style={styles.empty}>
-                <View style={styles.emptyIconBox}>
-                  {items.length === 0 ? (
-                    <Shirt size={44} color={Colors.accent} strokeWidth={1.6} />
-                  ) : closetTab === 'bag' ? (
-                    <Luggage size={44} color={Colors.textTertiary} strokeWidth={1.4} />
-                  ) : closetTab === 'laundry' ? (
-                    <Waves size={44} color={Colors.textTertiary} strokeWidth={1.4} />
-                  ) : (
-                    <Shirt size={44} color={Colors.textTertiary} strokeWidth={1.4} />
-                  )}
+          {/* Child [2]: Clothes List or Empty State */}
+          <View style={styles.list}>
+            {/* Zone-specific quick actions (above the list, scrolls naturally with content) */}
+            {closetTab === 'laundry' && zoneItems.laundry.length > 0 && (
+              <View style={styles.actionBar}>
+                <View style={styles.actionBarRow}>
+                  <PressableScale
+                    onPress={handleWornToLaundry}
+                    scaleTo={0.95}
+                    style={styles.actionBtnWrap}
+                  >
+                    <View style={[styles.actionBtn, wornDisplayed.length === 0 && styles.actionBtnIdle]}>
+                      <Waves size={13} color={Colors.statusLaundry} strokeWidth={2.2} />
+                      <Text style={[styles.actionBtnText, { color: Colors.statusLaundry }]} numberOfLines={1}>
+                        Worn → Laundry ({wornDisplayed.length})
+                      </Text>
+                    </View>
+                  </PressableScale>
+                  <PressableScale
+                    onPress={handleWashAll}
+                    scaleTo={0.95}
+                    style={styles.actionBtnWrap}
+                  >
+                    <View
+                      style={[
+                        styles.actionBtn,
+                        styles.actionBtnClean,
+                        displayed.length === 0 && styles.actionBtnIdle,
+                      ]}
+                    >
+                      <Check size={13} color="#FFFFFF" strokeWidth={2.6} />
+                      <Text style={[styles.actionBtnText, { color: '#FFFFFF' }]} numberOfLines={1}>
+                        Wash all → Clean ({displayed.length})
+                      </Text>
+                    </View>
+                  </PressableScale>
                 </View>
+              </View>
+            )}
 
-                {items.length === 0 ? (
-                  <>
-                    <Text style={styles.emptyTitle}>Your closet is empty</Text>
-                    <Text style={styles.emptyText}>
-                      Start cataloging your clothes to build outfits and pack smart between locations.
-                    </Text>
-                    <PressableScale
-                      onPress={() => navigation.navigate('Add', { editItem: undefined })}
-                      scaleTo={0.94}
-                      style={[styles.emptyBtn, { backgroundColor: Colors.accent }]}
-                    >
-                      <Text style={[styles.emptyBtnText, { color: '#FFFFFF' }]}>+ Add Your First Clothes</Text>
-                    </PressableScale>
-                  </>
-                ) : hasActiveFilters ? (
-                  <>
-                    <Text style={styles.emptyTitle}>No matches</Text>
-                    <Text style={styles.emptyText}>Nothing here fits your search or filters</Text>
-                    <PressableScale onPress={resetFilters} scaleTo={0.94} style={styles.emptyBtn}>
-                      <Text style={styles.emptyBtnText}>Reset filters</Text>
-                    </PressableScale>
-                  </>
-                ) : closetTab === 'bag' ? (
-                  <>
-                    <Text style={styles.emptyTitle}>Your bag is empty</Text>
-                    <Text style={styles.emptyText}>Pack what you're bringing for the trip</Text>
-                    <PressableScale
-                      onPress={() => startPackingSession('clean')}
-                      scaleTo={0.94}
-                      style={styles.emptyBtn}
-                    >
-                      <Text style={styles.emptyBtnText}>Pack Bag</Text>
-                    </PressableScale>
-                  </>
-                ) : closetTab === 'laundry' ? (
-                  <>
-                    <Text style={styles.emptyTitle}>Laundry basket is empty</Text>
-                    <Text style={styles.emptyText}>
-                      Nothing worn or waiting to be washed {showAllPlaces ? '' : `at ${place}`}
-                    </Text>
-                  </>
-                ) : closetTab === 'clean' ? (
-                  <>
-                    <Text style={styles.emptyTitle}>No clean clothes here</Text>
-                    <Text style={styles.emptyText}>
-                      {showAllPlaces ? 'Nothing is clean right now' : `Nothing clean at ${place} right now`}
-                    </Text>
-                    {zoneItems.laundry.length > 0 && (
+            {closetTab === 'bag' && zoneItems.bag.length > 0 && (
+              <View style={styles.actionBar}>
+                <PressableScale onPress={requestUnpack} scaleTo={0.97}>
+                  <View style={styles.unpackBtn}>
+                    <Luggage size={16} color="#FFFFFF" strokeWidth={2.2} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.unpackBtnText}>Unpack to {place}</Text>
+                      <Text style={styles.unpackBtnSub}>
+                        {zoneItems.bag.length - bagDirtyCount} clean · {bagDirtyCount} dirty
+                      </Text>
+                    </View>
+                  </View>
+                </PressableScale>
+              </View>
+            )}
+            {displayed.length > 0 ? (
+              displayed.map((item, index) => (
+                <ClothingCard
+                  key={item.id}
+                  item={item}
+                  delay={Math.min(index * 25, 160)}
+                  onPress={() => setSelectedItemId(item.id)}
+                  showQuickAction={closetTab !== 'bag'}
+                  hideLocation={hideLocationBadge}
+                />
+              ))
+            ) : (
+              <FadeSlideIn delay={120}>
+                <View style={styles.empty}>
+                  <View style={styles.emptyIconBox}>
+                    {items.length === 0 ? (
+                      <Shirt size={44} color={Colors.accent} strokeWidth={1.6} />
+                    ) : closetTab === 'bag' ? (
+                      <Luggage size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                    ) : closetTab === 'laundry' ? (
+                      <Waves size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                    ) : (
+                      <Shirt size={44} color={Colors.textTertiary} strokeWidth={1.4} />
+                    )}
+                  </View>
+
+                  {items.length === 0 ? (
+                    <>
+                      <Text style={styles.emptyTitle}>Your closet is empty</Text>
+                      <Text style={styles.emptyText}>
+                        Start cataloging your clothes to build outfits and pack smart between locations.
+                      </Text>
                       <PressableScale
-                        onPress={() => switchZone('laundry')}
+                        onPress={() => navigation.navigate('Add', { editItem: undefined })}
+                        scaleTo={0.94}
+                        style={[styles.emptyBtn, { backgroundColor: Colors.accent }]}
+                      >
+                        <Text style={[styles.emptyBtnText, { color: '#FFFFFF' }]}>
+                          + Add Your First Clothes
+                        </Text>
+                      </PressableScale>
+                    </>
+                  ) : hasActiveFilters ? (
+                    <>
+                      <Text style={styles.emptyTitle}>No matches</Text>
+                      <Text style={styles.emptyText}>Nothing here fits your search or filters</Text>
+                      <PressableScale onPress={resetFilters} scaleTo={0.94} style={styles.emptyBtn}>
+                        <Text style={styles.emptyBtnText}>Reset filters</Text>
+                      </PressableScale>
+                    </>
+                  ) : closetTab === 'bag' ? (
+                    <>
+                      <Text style={styles.emptyTitle}>Your bag is empty</Text>
+                      <Text style={styles.emptyText}>Pack what you're bringing for the trip</Text>
+                      <PressableScale
+                        onPress={() => startPackingSession('clean')}
                         scaleTo={0.94}
                         style={styles.emptyBtn}
                       >
-                        <Text style={styles.emptyBtnText}>
-                          See laundry ({zoneItems.laundry.length})
-                        </Text>
+                        <Text style={styles.emptyBtnText}>Pack Bag</Text>
                       </PressableScale>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.emptyTitle}>No clothes found</Text>
-                    <Text style={styles.emptyText}>
-                      {showAllPlaces ? 'No clothes in your wardrobe' : `No clothes at ${place}`}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </FadeSlideIn>
-          }
-        />
+                    </>
+                  ) : closetTab === 'laundry' ? (
+                    <>
+                      <Text style={styles.emptyTitle}>Laundry basket is empty</Text>
+                      <Text style={styles.emptyText}>
+                        Nothing worn or waiting to be washed {showAllPlaces ? '' : `at ${place}`}
+                      </Text>
+                    </>
+                  ) : closetTab === 'clean' ? (
+                    <>
+                      <Text style={styles.emptyTitle}>No clean clothes here</Text>
+                      <Text style={styles.emptyText}>
+                        {showAllPlaces
+                          ? 'Nothing is clean right now'
+                          : `Nothing clean at ${place} right now`}
+                      </Text>
+                      {zoneItems.laundry.length > 0 && (
+                        <PressableScale
+                          onPress={() => switchZone('laundry')}
+                          scaleTo={0.94}
+                          style={styles.emptyBtn}
+                        >
+                          <Text style={styles.emptyBtnText}>
+                            See laundry ({zoneItems.laundry.length})
+                          </Text>
+                        </PressableScale>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.emptyTitle}>No clothes found</Text>
+                      <Text style={styles.emptyText}>
+                        {showAllPlaces ? 'No clothes in your wardrobe' : `No clothes at ${place}`}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </FadeSlideIn>
+            )}
+          </View>
+        </ScrollView>
 
         {/* Interactive Garment Detail Bottom Sheet */}
         <GarmentDetailSheet
@@ -796,13 +955,39 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
+  topScrollableHeader: {
+    paddingBottom: 2,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
+    paddingHorizontal: 24,
+    paddingTop: 16,
     paddingBottom: Spacing.sm,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    paddingRight: Spacing.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.borderGlassBright,
+  },
+  iconBtnFilled: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
   },
   title: {
     color: Colors.textPrimary,
@@ -813,25 +998,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
     letterSpacing: -0.1,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.accent,
-    borderRadius: Radii.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
   },
   cancelBtn: {
     flexDirection: 'row',
@@ -853,147 +1019,115 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.md,
+    paddingHorizontal: 24,
+    paddingTop: 2,
+    paddingBottom: 8,
+    gap: 12,
   },
-  packBtn: {
+  allPlacesLinkWrap: {
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    backgroundColor: Colors.locInTransit,
-    borderRadius: Radii.pill,
-    paddingHorizontal: 16,
-    height: 36,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    gap: 4,
   },
-  packBtnText: {
-    color: '#FFFFFF',
+  allPlacesLink: {
+    color: Colors.textTertiary,
     fontSize: 12.5,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+    flexShrink: 1,
+  },
+  allPlacesLinkActive: {
+    color: Colors.textPrimary,
     fontWeight: '700',
-    letterSpacing: 0.1,
+  },
+  stickyBar: {
+    backgroundColor: Colors.bgBase,
+    paddingTop: 2,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSubtle,
+    zIndex: 10,
   },
   zoneRow: {
     flexDirection: 'row',
-    gap: 6,
     paddingHorizontal: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderGlass,
+    position: 'relative',
   },
-  zoneTile: {
+  zoneTab: {
     flex: 1,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 2,
-    borderRadius: Radii.lg,
-    backgroundColor: Colors.bgSubtle,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    minHeight: 60,
-  },
-  zoneTileActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  zoneCount: {
-    fontSize: 19,
-    fontWeight: '700',
-    letterSpacing: -0.5,
   },
   zoneLabel: {
     color: Colors.textTertiary,
-    fontSize: 10.5,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 1,
-  },
-  scopeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: 8,
-    paddingBottom: 2,
-  },
-  scopeRowInner: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  scopeText: {
-    flexShrink: 1,
-    color: Colors.textTertiary,
-    fontSize: 11.5,
-  },
-  scopeLink: {
-    color: Colors.textPrimary,
-    fontSize: 11.5,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
-  searchRow: {
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.xs,
-  },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: Radii.xl,
-    paddingHorizontal: Spacing.md,
-    height: 44,
-    borderWidth: 1,
-    borderColor: Colors.borderGlass,
-    shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-  },
-  searchInput: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 15,
+    fontSize: 13,
+    fontWeight: '500',
     letterSpacing: -0.1,
   },
-  clearBtn: {
-    padding: 4,
+  zoneLabelActive: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  zoneCount: {
+    color: Colors.textTertiary,
+    fontSize: 12,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
+  },
+  zoneCountActive: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  slidingUnderline: {
+    position: 'absolute',
+    bottom: -1,
+    height: 2.5,
+    borderRadius: 2,
+    backgroundColor: Colors.accent,
+  },
+  clearFiltersBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 32,
+    paddingHorizontal: 6,
+  },
+  clearFiltersText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
   categoryScroll: {
     flexGrow: 0,
     flexShrink: 0,
-    marginTop: 6,
+    marginTop: 8,
   },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: Spacing.lg,
-    paddingTop: 6,
-    paddingBottom: Spacing.sm,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 36,
-    paddingHorizontal: 14,
+    gap: 5,
+    height: 32,
+    paddingHorizontal: 12,
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
     elevation: 1,
   },
   categoryChipActive: {
@@ -1001,8 +1135,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
     elevation: 2,
   },
   uniformChipActive: {
@@ -1011,12 +1145,12 @@ const styles = StyleSheet.create({
     shadowColor: Colors.locBatangas,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
-    shadowRadius: 5,
+    shadowRadius: 4,
     elevation: 2,
   },
   categoryChipText: {
     color: Colors.textSecondary,
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: -0.1,
     flexShrink: 0,
@@ -1025,22 +1159,51 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  actionBar: {
+  searchRow: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    gap: 8,
+    marginTop: 6,
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.lg,
+    paddingHorizontal: Spacing.md,
+    height: 38,
+    borderWidth: 1,
+    borderColor: Colors.borderGlassBright,
+  },
+  searchInput: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    letterSpacing: -0.1,
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  actionBar: {
+    paddingTop: 2,
+    paddingBottom: 10,
+    gap: 6,
   },
   actionBarRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
   },
+  actionBtnWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   actionBtn: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: Radii.lg,
+    gap: 5,
+    height: 34,
+    borderRadius: Radii.md,
     paddingHorizontal: 8,
     backgroundColor: 'rgba(234, 88, 12, 0.08)',
     borderWidth: 1,
@@ -1059,42 +1222,33 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     flexShrink: 1,
   },
-  actionLink: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingVertical: 2,
-  },
   unpackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: 10,
     backgroundColor: Colors.locInTransit,
-    borderRadius: Radii.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 12,
+    borderRadius: Radii.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 6,
+    elevation: 2,
   },
   unpackBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   unpackBtnSub: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 11.5,
-    marginTop: 1,
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 11,
   },
   list: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: 120,
+    paddingTop: 8,
   },
   empty: {
     alignItems: 'center',
@@ -1139,7 +1293,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 24,
     paddingTop: Spacing.xs,
     paddingBottom: Spacing.xs,
   },

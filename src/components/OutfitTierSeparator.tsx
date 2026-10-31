@@ -5,7 +5,7 @@ import { CategoryIcon, PushPin } from './AppIcons';
 import { Category, ClothingItem, STATUS_COLORS } from '../types/wardrobe';
 
 interface OutfitTierSeparatorProps {
-  category: Category;
+  category: Category | 'socks';
   label: string;
   activeItem?: ClothingItem | null;
   isLocked?: boolean;

@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  Easing,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -51,19 +52,24 @@ export default function HomeScreen() {
     setCurrentLocation,
     setClosetTab,
     setIsPackingSession,
+    setIsWearWizardSession,
     getLocationLabel,
   } = useWardrobe();
   const { requestUnpack, unpackModal } = useUnpackFlow();
 
+  // Displayed location trails currentLocation by a brief exit fade so numbers & cards
+  // cross-dissolve smoothly instead of snapping on frame 0
+  const [displayedLocation, setDisplayedLocation] = useState<Location>(currentLocation);
+
   // ── Stats for the closet I'm at right now ────────────────────────
-  const hereItems = items.filter((i) => i.location === currentLocation);
+  const hereItems = items.filter((i) => i.location === displayedLocation);
   const readyCount = hereItems.filter((i) => !isDirtyStatus(i.status)).length;
   const laundryCount = hereItems.filter((i) => isDirtyStatus(i.status)).length;
   const bagItems = items.filter((i) => i.location === 'in_transit_bag');
   const bagDirtyCount = bagItems.filter((i) => isDirtyStatus(i.status)).length;
 
-  const place = getLocationLabel(currentLocation);
-  const isDorm = currentLocation === 'batangas_dorm';
+  const place = getLocationLabel(displayedLocation);
+  const isDorm = displayedLocation === 'batangas_dorm';
   const placeColor = isDorm ? Colors.locBatangas : Colors.locCalamba;
 
   // Date & Greeting
@@ -85,6 +91,11 @@ export default function HomeScreen() {
     setIsPackingSession(false);
     setClosetTab('all');
     navigation.navigate('Closet', { zone: 'all', category });
+  };
+
+  const startWearWizard = () => {
+    setIsWearWizardSession(true);
+    navigation.navigate('FitGen', { startWizard: true });
   };
 
   const startPacking = () => {
@@ -187,54 +198,95 @@ export default function HomeScreen() {
 
   // Minimized vs. Expanded state for supply category grid (shows top 2 essentials by default)
   const [isSupplyExpanded, setIsSupplyExpanded] = useState(false);
+  const [extraCategoriesHeight, setExtraCategoriesHeight] = useState(244);
+  const expandAnim = useRef(new Animated.Value(0)).current;
 
   const toggleSupplyExpanded = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsSupplyExpanded((prev) => !prev);
+    const nextExpanded = !isSupplyExpanded;
+    setIsSupplyExpanded(nextExpanded);
+    Animated.timing(expandAnim, {
+      toValue: nextExpanded ? 1 : 0,
+      duration: 380,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
   };
 
-  const displayedCategories = isSupplyExpanded
-    ? categoryStats
-    : categoryStats.slice(0, 2);
+  const primaryCategories = categoryStats.slice(0, 2);
+  const extraCategories = categoryStats.slice(2);
 
   // ── Directional content transition when switching location ───────
   const useNativeDriver = Platform.OS !== 'web';
   const contentTranslateX = useRef(new Animated.Value(0)).current;
   const contentOpacity = useRef(new Animated.Value(1)).current;
+  const contentScale = useRef(new Animated.Value(1)).current;
+  const activeAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const prevLocRef = useRef(currentLocation);
 
   const handleSwitchLocation = (newLoc: Location) => {
     if (newLoc === currentLocation) return;
-    LayoutAnimation.configureNext({
-      duration: 300,
-      create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-      update: { type: LayoutAnimation.Types.spring, springDamping: 0.84 },
-      delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
-    });
     setCurrentLocation(newLoc);
   };
 
   useEffect(() => {
     if (prevLocRef.current !== currentLocation) {
       const direction = currentLocation === 'calamba_home' ? 1 : -1;
-      contentTranslateX.setValue(direction * 14);
-      contentOpacity.setValue(0.55);
-      Animated.parallel([
-        Animated.spring(contentTranslateX, {
-          toValue: 0,
-          tension: 290,
-          friction: 24,
-          useNativeDriver,
-        }),
-        Animated.timing(contentOpacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver,
-        }),
-      ]).start();
       prevLocRef.current = currentLocation;
+
+      activeAnimRef.current?.stop();
+
+      // Phase 1: Soft, brief exit (fade down and subtle directional ease)
+      const exitAnim = Animated.parallel([
+        Animated.timing(contentOpacity, {
+          toValue: 0.25,
+          duration: 90,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver,
+        }),
+        Animated.timing(contentTranslateX, {
+          toValue: -direction * 8,
+          duration: 90,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver,
+        }),
+      ]);
+
+      activeAnimRef.current = exitAnim;
+      exitAnim.start(({ finished }) => {
+        if (finished) {
+          // Swap displayed location numbers & cards while content is soft/dimmed
+          setDisplayedLocation(currentLocation);
+          contentTranslateX.setValue(direction * 12);
+          contentScale.setValue(0.99);
+
+          // Phase 2: Luxurious, graceful entrance with silky settling
+          const enterAnim = Animated.parallel([
+            Animated.timing(contentOpacity, {
+              toValue: 1,
+              duration: 280,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver,
+            }),
+            Animated.spring(contentTranslateX, {
+              toValue: 0,
+              tension: 190,
+              friction: 22,
+              useNativeDriver,
+            }),
+            Animated.spring(contentScale, {
+              toValue: 1,
+              tension: 200,
+              friction: 22,
+              useNativeDriver,
+            }),
+          ]);
+
+          activeAnimRef.current = enterAnim;
+          enterAnim.start();
+        }
+      });
     }
-  }, [currentLocation]);
+  }, [currentLocation, useNativeDriver]);
 
   const counters: {
     key: ClosetSubTab;
@@ -250,93 +302,97 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <FadeSlideIn delay={0} fromY={-8}>
-            <View style={styles.header}>
-              <View style={styles.headerLeft}>
-                <Text style={styles.dateBadge}>{dateString}</Text>
-                <Text style={styles.greeting}>{greeting}</Text>
+        {/* Anchored Top Header — Native iOS app feel, anchored firmly at top */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.dateBadge}>{dateString}</Text>
+            <Text style={styles.greeting}>{greeting}</Text>
+          </View>
+          <LiquidGlassLocationSwitch
+            currentLocation={currentLocation}
+            onChange={handleSwitchLocation}
+          />
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          bounces={true}
+          overScrollMode="never"
+        >
+          {/* Transit Bag or Empty State Welcome */}
+          {items.length === 0 ? (
+            <FadeSlideIn delay={40} fromY={8}>
+              <PressableScale
+                onPress={() => navigation.navigate('Add', { editItem: undefined, returnTo: 'Home' })}
+                scaleTo={0.97}
+              >
+                <View style={[styles.packPrompt, { borderColor: Colors.borderGlassBright }]}>
+                  <View style={[styles.packPromptIcon, { backgroundColor: Colors.accent }]}>
+                    <Plus size={20} color="#FFFFFF" strokeWidth={2.4} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.packPromptTitle}>Welcome to DormDrobe!</Text>
+                    <Text style={styles.packPromptSub}>Add your first clothes to unlock outfit rolling</Text>
+                  </View>
+                  <ChevronRight size={18} color={Colors.textTertiary} />
+                </View>
+              </PressableScale>
+            </FadeSlideIn>
+          ) : bagItems.length > 0 ? (
+            <FadeSlideIn delay={40} fromY={8}>
+              <View style={styles.bagBanner}>
+                <View style={styles.bagIconBox}>
+                  <Luggage size={22} color={Colors.locInTransit} strokeWidth={2.2} />
+                </View>
+                <TouchableOpacity
+                  style={styles.bagBody}
+                  activeOpacity={0.7}
+                  onPress={() => openZone('bag')}
+                >
+                  <Text style={styles.bagTitle}>
+                    {bagItems.length} item{bagItems.length > 1 ? 's' : ''} in your bag
+                  </Text>
+                  <Text style={styles.bagSub}>
+                    {bagDirtyCount > 0
+                      ? `${bagItems.length - bagDirtyCount} clean · ${bagDirtyCount} worn / dirty · View bag`
+                      : 'All clean · View bag'}
+                  </Text>
+                </TouchableOpacity>
+                <PressableScale onPress={requestUnpack} scaleTo={0.92} style={styles.bagBtn}>
+                  <Text style={styles.bagBtnText}>Unpack here</Text>
+                </PressableScale>
               </View>
-              <LiquidGlassLocationSwitch
-                currentLocation={currentLocation}
-                onChange={handleSwitchLocation}
-              />
-            </View>
-          </FadeSlideIn>
+            </FadeSlideIn>
+          ) : (
+            <FadeSlideIn delay={40} fromY={8}>
+              <PressableScale onPress={startPacking} scaleTo={0.97}>
+                <View style={styles.packPrompt}>
+                  <View style={styles.packPromptIcon}>
+                    <Luggage size={20} color={Colors.textPrimary} strokeWidth={2} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.packPromptTitle}>Heading out?</Text>
+                    <Text style={styles.packPromptSub}>Pack your Transit Bag in one checklist</Text>
+                  </View>
+                  <ChevronRight size={18} color={Colors.textTertiary} />
+                </View>
+              </PressableScale>
+            </FadeSlideIn>
+          )}
 
           <Animated.View
             style={{
               opacity: contentOpacity,
-              transform: [{ translateX: contentTranslateX }],
+              transform: [{ translateX: contentTranslateX }, { scale: contentScale }],
             }}
           >
-            {/* Transit Bag or Empty State Welcome */}
-            {items.length === 0 ? (
-              <FadeSlideIn delay={40} fromY={8}>
-                <PressableScale
-                  onPress={() => navigation.navigate('Add', { editItem: undefined })}
-                  scaleTo={0.97}
-                >
-                  <View style={[styles.packPrompt, { borderColor: Colors.borderGlassBright }]}>
-                    <View style={[styles.packPromptIcon, { backgroundColor: Colors.accent }]}>
-                      <Plus size={20} color="#FFFFFF" strokeWidth={2.4} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.packPromptTitle}>Welcome to DormDrobe!</Text>
-                      <Text style={styles.packPromptSub}>Add your first clothes to unlock outfit rolling</Text>
-                    </View>
-                    <ChevronRight size={18} color={Colors.textTertiary} />
-                  </View>
-                </PressableScale>
-              </FadeSlideIn>
-            ) : bagItems.length > 0 ? (
-              <FadeSlideIn delay={40} fromY={8}>
-                <View style={styles.bagBanner}>
-                  <View style={styles.bagIconBox}>
-                    <Luggage size={22} color={Colors.locInTransit} strokeWidth={2.2} />
-                  </View>
-                  <TouchableOpacity
-                    style={styles.bagBody}
-                    activeOpacity={0.7}
-                    onPress={() => openZone('bag')}
-                  >
-                    <Text style={styles.bagTitle}>
-                      {bagItems.length} item{bagItems.length > 1 ? 's' : ''} in your bag
-                    </Text>
-                    <Text style={styles.bagSub}>
-                      {bagDirtyCount > 0
-                        ? `${bagItems.length - bagDirtyCount} clean · ${bagDirtyCount} worn / dirty · View bag`
-                        : 'All clean · View bag'}
-                    </Text>
-                  </TouchableOpacity>
-                  <PressableScale onPress={requestUnpack} scaleTo={0.92} style={styles.bagBtn}>
-                    <Text style={styles.bagBtnText}>Unpack here</Text>
-                  </PressableScale>
-                </View>
-              </FadeSlideIn>
-            ) : (
-              <FadeSlideIn delay={40} fromY={8}>
-                <PressableScale onPress={startPacking} scaleTo={0.97}>
-                  <View style={styles.packPrompt}>
-                    <View style={styles.packPromptIcon}>
-                      <Luggage size={20} color={Colors.textPrimary} strokeWidth={2} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.packPromptTitle}>Heading out?</Text>
-                      <Text style={styles.packPromptSub}>Pack your Transit Bag in one checklist</Text>
-                    </View>
-                    <ChevronRight size={18} color={Colors.textTertiary} />
-                  </View>
-                </PressableScale>
-              </FadeSlideIn>
-            )}
-
             {/* Closet status for where I am right now */}
             <FadeSlideIn delay={80} fromY={10}>
               <View style={styles.statusCard}>
                 <View style={styles.statusHeader}>
-                  <LocationIcon location={currentLocation} size={18} color={placeColor} strokeWidth={2} />
+                  <LocationIcon location={displayedLocation} size={18} color={placeColor} strokeWidth={2} />
                   <Text style={styles.statusTitle}>Right now at {place}</Text>
                   <TouchableOpacity
                     onPress={() => openZone('all')}
@@ -382,13 +438,17 @@ export default function HomeScreen() {
                       <Text style={styles.supplyTitle}>WARDROBE SUPPLY</Text>
                       <Text style={styles.supplySub}>Clean readiness at {place}</Text>
                     </View>
-                    <TouchableOpacity
+                    <PressableScale
                       onPress={() => openZone('clean')}
-                      activeOpacity={0.7}
+                      scaleTo={0.94}
                       style={styles.viewCleanTouch}
                     >
-                      <Text style={styles.viewCleanLink}>Clean ({readyCount}) →</Text>
-                    </TouchableOpacity>
+                      <View style={styles.viewCleanBadge}>
+                        <View style={styles.viewCleanDot} />
+                        <Text style={styles.viewCleanLink}>Clean ({readyCount})</Text>
+                        <ChevronRight size={12} color={Colors.statusClean} strokeWidth={2.4} />
+                      </View>
+                    </PressableScale>
                   </View>
 
                   {/* Days of Supply Banner */}
@@ -433,9 +493,9 @@ export default function HomeScreen() {
                     </View>
                   )}
 
-                  {/* Category Grid (minimized to 2 by default, expandable to all) */}
-                  <View style={styles.categoryGrid}>
-                    {displayedCategories.map((stat) => (
+                  {/* Category Grid (top 2 essentials always visible, remaining 4 smoothly collapsible) */}
+                  {(() => {
+                    const renderCategoryCard = (stat: (typeof categoryStats)[number]) => (
                       <PressableScale
                         key={stat.category}
                         onPress={() => openCategory(stat.category)}
@@ -458,7 +518,7 @@ export default function HomeScreen() {
                             >
                               <CategoryIcon
                                 category={stat.category}
-                                size={14}
+                                size={15}
                                 color={stat.healthColor}
                               />
                             </View>
@@ -518,25 +578,96 @@ export default function HomeScreen() {
                           </View>
                         </View>
                       </PressableScale>
-                    ))}
-                  </View>
+                    );
+
+                    return (
+                      <>
+                        <View style={styles.categoryGrid}>
+                          {primaryCategories.map(renderCategoryCard)}
+                        </View>
+
+                        {extraCategories.length > 0 && (
+                          <Animated.View
+                            style={[
+                              styles.extraCategoriesClip,
+                              {
+                                height: expandAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [0, extraCategoriesHeight],
+                                  extrapolate: 'clamp',
+                                }),
+                                opacity: expandAnim.interpolate({
+                                  inputRange: [0, 0.12, 1],
+                                  outputRange: [0, 0, 1],
+                                  extrapolate: 'clamp',
+                                }),
+                              },
+                            ]}
+                            pointerEvents={isSupplyExpanded ? 'auto' : 'none'}
+                          >
+                            <Animated.View
+                              style={[
+                                styles.extraCategoriesInner,
+                                {
+                                  transform: [
+                                    {
+                                      translateY: expandAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [-10, 0],
+                                        extrapolate: 'clamp',
+                                      }),
+                                    },
+                                  ],
+                                },
+                              ]}
+                            >
+                              <View
+                                onLayout={(e) => {
+                                  const h = e.nativeEvent.layout.height;
+                                  if (h > 0 && Math.abs(h + 10 - extraCategoriesHeight) > 1) {
+                                    setExtraCategoriesHeight(h + 10);
+                                  }
+                                }}
+                                style={styles.categoryGrid}
+                              >
+                                {extraCategories.map(renderCategoryCard)}
+                              </View>
+                            </Animated.View>
+                          </Animated.View>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* Expand / Minimize Toggle */}
                   {categoryStats.length > 2 && (
-                    <TouchableOpacity
-                      activeOpacity={0.7}
+                    <PressableScale
                       onPress={toggleSupplyExpanded}
-                      style={styles.expandSupplyBtn}
+                      scaleTo={0.97}
+                      style={styles.expandSupplyTouch}
                     >
-                      <Text style={styles.expandSupplyText}>
-                        {isSupplyExpanded
-                          ? 'Show less'
-                          : `Show all ${categoryStats.length} categories`}
-                      </Text>
-                      <View style={{ transform: [{ rotate: isSupplyExpanded ? '180deg' : '0deg' }] }}>
-                        <CaretDown size={13} color={Colors.textSecondary} />
+                      <View style={styles.expandSupplyBtn}>
+                        <Text style={styles.expandSupplyText}>
+                          {isSupplyExpanded
+                            ? 'Show less'
+                            : `Show all ${categoryStats.length} categories`}
+                        </Text>
+                        <Animated.View
+                          style={{
+                            transform: [
+                              {
+                                rotate: expandAnim.interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: ['0deg', '180deg'],
+                                }),
+                              },
+                            ],
+                          }}
+                        >
+                          <CaretDown size={13} color={Colors.textSecondary} />
+                        </Animated.View>
                       </View>
-                    </TouchableOpacity>
+                    </PressableScale>
                   )}
                 </View>
               </FadeSlideIn>
@@ -548,7 +679,7 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
             <View style={styles.actionsGrid}>
               <PressableScale
-                onPress={() => navigation.navigate('FitGen')}
+                onPress={startWearWizard}
                 scaleTo={0.96}
                 style={styles.actionCol}
               >
@@ -556,8 +687,10 @@ export default function HomeScreen() {
                   <View style={styles.actionIconBox}>
                     <Sparkles size={20} color={Colors.textPrimary} />
                   </View>
-                  <Text style={styles.actionTitle}>Roll Outfit</Text>
-                  <Text style={styles.actionSub}>Pick today's fit</Text>
+                  <View style={styles.actionTextWrap}>
+                    <Text style={styles.actionTitle} numberOfLines={1}>Get Dressed</Text>
+                    <Text style={styles.actionSub} numberOfLines={1} ellipsizeMode="tail">Step-by-step fit</Text>
+                  </View>
                 </View>
               </PressableScale>
 
@@ -566,13 +699,15 @@ export default function HomeScreen() {
                   <View style={styles.actionIconBox}>
                     <Luggage size={20} color={Colors.textPrimary} />
                   </View>
-                  <Text style={styles.actionTitle}>Pack Bag</Text>
-                  <Text style={styles.actionSub}>Checklist & go</Text>
+                  <View style={styles.actionTextWrap}>
+                    <Text style={styles.actionTitle} numberOfLines={1}>Pack Bag</Text>
+                    <Text style={styles.actionSub} numberOfLines={1} ellipsizeMode="tail">Checklist & go</Text>
+                  </View>
                 </View>
               </PressableScale>
 
               <PressableScale
-                onPress={() => navigation.navigate('Add', { editItem: undefined })}
+                onPress={() => navigation.navigate('Add', { editItem: undefined, returnTo: 'Home' })}
                 scaleTo={0.96}
                 style={styles.actionCol}
               >
@@ -580,8 +715,10 @@ export default function HomeScreen() {
                   <View style={styles.actionIconBox}>
                     <Plus size={20} color={Colors.textPrimary} />
                   </View>
-                  <Text style={styles.actionTitle}>Add Clothes</Text>
-                  <Text style={styles.actionSub}>Log a new piece</Text>
+                  <View style={styles.actionTextWrap}>
+                    <Text style={styles.actionTitle} numberOfLines={1}>Add Clothes</Text>
+                    <Text style={styles.actionSub} numberOfLines={1} ellipsizeMode="tail">Log a new piece</Text>
+                  </View>
                 </View>
               </PressableScale>
             </View>
@@ -604,14 +741,18 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xs,
     paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: Spacing.sm,
-    marginBottom: Spacing.md,
+    paddingTop: 16,
+    paddingBottom: Spacing.sm,
+    paddingHorizontal: 24,
+    backgroundColor: Colors.bgBase,
+    zIndex: 10,
   },
   headerLeft: {
     flex: 1,
@@ -792,56 +933,76 @@ const styles = StyleSheet.create({
   // Category supply breakdown & segmented battery gauge
   supplyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: Radii.xxl,
-    padding: Spacing.lg,
+    borderRadius: Radii.xl,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
     marginTop: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
     shadowColor: '#141413',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   supplyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: 16,
   },
   supplyTitleRow: {
     flex: 1,
+    paddingRight: 8,
   },
   supplyTitle: {
     color: Colors.textTertiary,
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 1.1,
   },
   supplySub: {
     color: Colors.textPrimary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     marginTop: 2,
     letterSpacing: -0.2,
   },
   viewCleanTouch: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    alignSelf: 'center',
+  },
+  viewCleanBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
+    backgroundColor: 'rgba(22, 163, 74, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(22, 163, 74, 0.22)',
+  },
+  viewCleanDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.statusClean,
   },
   viewCleanLink: {
     color: Colors.statusClean,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
   supplyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 9,
-    borderRadius: Radii.lg,
-    marginBottom: Spacing.md,
+    gap: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderRadius: Radii.md,
+    marginBottom: 16,
     borderWidth: 1,
   },
   supplyBannerHealthy: {
@@ -858,25 +1019,36 @@ const styles = StyleSheet.create({
   },
   supplyBannerText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    rowGap: 10,
+  },
+  extraCategoriesClip: {
+    overflow: 'hidden',
+  },
+  extraCategoriesInner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 10,
   },
   categoryCardCol: {
-    width: '48.7%',
+    width: '48.5%',
   },
   categoryCard: {
     backgroundColor: Colors.bgBase,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
+    borderRadius: 16,
+    padding: 13,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    gap: 7,
+    gap: 8,
   },
   categoryCardLow: {
     borderColor: 'rgba(217, 119, 6, 0.35)',
@@ -892,41 +1064,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   catIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   catBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: Radii.pill,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.borderGlass,
   },
   catBadgeRatio: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   catBadgeTotal: {
     color: Colors.textTertiary,
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '500',
   },
   catName: {
     color: Colors.textPrimary,
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   gaugeTrack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    height: 6,
-    marginVertical: 2,
+    gap: 3.5,
+    height: 5,
+    marginVertical: 3,
   },
   gaugeSegment: {
     flex: 1,
@@ -943,16 +1115,18 @@ const styles = StyleSheet.create({
   },
   catStatusText: {
     color: Colors.textTertiary,
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '500',
+  },
+  expandSupplyTouch: {
+    marginTop: 16,
   },
   expandSupplyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 8,
-    marginTop: 4,
+    paddingVertical: 10,
     borderRadius: Radii.pill,
     backgroundColor: Colors.bgSubtle,
     borderWidth: 1,
@@ -960,7 +1134,7 @@ const styles = StyleSheet.create({
   },
   expandSupplyText: {
     color: Colors.textSecondary,
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
@@ -976,18 +1150,24 @@ const styles = StyleSheet.create({
   },
   actionsGrid: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: Spacing.sm,
   },
   actionCol: {
     flex: 1,
+    minWidth: 0,
   },
   actionCard: {
+    flex: 1,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: Radii.xl,
     borderWidth: 1,
     borderColor: Colors.borderGlass,
-    padding: Spacing.md,
-    minHeight: 112,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 10,
+    minHeight: 114,
+    justifyContent: 'space-between',
     shadowColor: '#141413',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -1003,15 +1183,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: Spacing.sm,
   },
+  actionTextWrap: {
+    width: '100%',
+  },
   actionTitle: {
     color: Colors.textPrimary,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
   actionSub: {
     color: Colors.textTertiary,
-    fontSize: 11.5,
+    fontSize: 11,
     marginTop: 2,
   },
 });

@@ -245,6 +245,94 @@ export const PushPin = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.P
 export const DiceFive = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.DiceFive} />;
 export const MoreVertical = (p: AppIconProps) => <PhosphorIcon {...p} paths={GLYPHS.DotsThreeVertical} />;
 
+export function SockIcon({
+  size = 20,
+  color = '#1C1C1E',
+  weight = 'light',
+  style,
+}: AppIconProps) {
+  const sw = weight === 'bold' ? 2.2 : 1.7;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      {/* Top ribbed cuff */}
+      <Path
+        d="M9 3h6.5v3.8H9z"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M11.2 3v3.8M13.3 3v3.8"
+        stroke={color}
+        strokeWidth={sw * 0.75}
+        strokeLinecap="round"
+      />
+      {/* Sock body: leg -> heel -> foot -> toe */}
+      <Path
+        d="M9 6.8v8.2a4 4 0 0 0 4 4h3.5a3.5 3.5 0 0 0 3.5-3.5v-.5a4.5 4.5 0 0 0-4-4.5H15.5V6.8"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Subtle inner heel contour */}
+      <Path
+        d="M9 15a3 3 0 0 1 3 3"
+        stroke={color}
+        strokeWidth={sw * 0.75}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export const Sock = (p: AppIconProps) => <SockIcon {...p} />;
+
+export function UnderwearBriefsIcon({
+  size = 20,
+  color = '#1C1C1E',
+  weight = 'light',
+  style,
+}: AppIconProps) {
+  const sw = weight === 'bold' ? 2.2 : weight === 'regular' ? 1.8 : 1.5;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      {/* Waistband top band */}
+      <Path
+        d="M4.5 6.5h15"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M4.8 8.8h14.4"
+        stroke={color}
+        strokeWidth={sw * 0.7}
+        strokeLinecap="round"
+        strokeOpacity={0.6}
+      />
+      {/* Boxer brief body silhouette */}
+      <Path
+        d="M4.5 6.5l1.1 11c.08.7.67 1.2 1.37 1.2h3.23c.7 0 1.28-.5 1.4-1.2l.4-2.5.4 2.5c.12.7.7 1.2 1.4 1.2h3.23c.7 0 1.29-.5 1.37-1.2l1.1-11"
+        stroke={color}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Center seam contour */}
+      <Path
+        d="M12 8.8v6.2"
+        stroke={color}
+        strokeWidth={sw * 0.75}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export const Briefs = (p: AppIconProps) => <UnderwearBriefsIcon {...p} />;
+export const UnderwearIcon = (p: AppIconProps) => <UnderwearBriefsIcon {...p} />;
+
 // ─── Semantic Wardrobe Category Icons ────────────────────────────────
 
 export function CategoryIcon({
@@ -253,7 +341,7 @@ export function CategoryIcon({
   color = '#1C1C1E',
   weight = 'light',
   style,
-}: { category: Category } & AppIconProps) {
+}: { category: Category | 'socks' } & AppIconProps) {
   switch (category) {
     case 'tops':
       return <CoatHanger size={size} color={color} weight={weight} style={style} />;
@@ -266,7 +354,9 @@ export function CategoryIcon({
     case 'accessories':
       return <Tote size={size} color={color} weight={weight} style={style} />;
     case 'underwear':
-      return <ShieldCheck size={size} color={color} weight={weight} style={style} />;
+      return <UnderwearBriefsIcon size={size} color={color} weight={weight} style={style} />;
+    case 'socks':
+      return <SockIcon size={size} color={color} weight={weight} style={style} />;
     default:
       return <CoatHanger size={size} color={color} weight={weight} style={style} />;
   }
@@ -313,6 +403,22 @@ export const BarChart3 = (p: AppIconProps) => <ChartBar size={p.size ?? 22} colo
 export const Cloud = (p: AppIconProps) => <CloudCheck size={p.size ?? 22} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
 export const ChevronRight = (p: AppIconProps) => <CaretRight size={p.size ?? 16} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'bold'} style={p.style} />;
 export const ArrowRight = (p: AppIconProps) => <ArrowRightIcon size={p.size ?? 18} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
+
+export function ArrowLeft({ size = 20, color = '#1C1C1E', strokeWidth = 2.4, style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ChevronLeft({ size = 20, color = '#1C1C1E', strokeWidth = 2.4, style }: AppIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+      <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 export const Sliders = (p: AppIconProps) => <SlidersHorizontal size={p.size ?? 20} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
 export const X = (p: AppIconProps) => <XIcon size={p.size ?? 16} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'bold'} style={p.style} />;
 export const Smartphone = (p: AppIconProps) => <DeviceMobile size={p.size ?? 16} color={p.color ?? '#1C1C1E'} weight={p.weight ?? 'light'} style={p.style} />;
@@ -425,7 +531,7 @@ export function LayoutRowsIcon({
   active = false,
   size = 18,
 }: {
-  rows: 2 | 3 | 4;
+  rows: 2 | 3 | 4 | 5 | 6;
   active?: boolean;
   size?: number;
 }) {
@@ -456,6 +562,23 @@ export function LayoutRowsIcon({
           <Line x1="3" y1="7.5" x2="21" y2="7.5" stroke={stroke} strokeWidth="1.8" />
           <Line x1="3" y1="12" x2="21" y2="12" stroke={stroke} strokeWidth="1.8" />
           <Line x1="3" y1="16.5" x2="21" y2="16.5" stroke={stroke} strokeWidth="1.8" />
+        </>
+      )}
+      {rows === 5 && (
+        <>
+          <Line x1="3" y1="6.6" x2="21" y2="6.6" stroke={stroke} strokeWidth="1.6" />
+          <Line x1="3" y1="10.2" x2="21" y2="10.2" stroke={stroke} strokeWidth="1.6" />
+          <Line x1="3" y1="13.8" x2="21" y2="13.8" stroke={stroke} strokeWidth="1.6" />
+          <Line x1="3" y1="17.4" x2="21" y2="17.4" stroke={stroke} strokeWidth="1.6" />
+        </>
+      )}
+      {rows === 6 && (
+        <>
+          <Line x1="3" y1="6" x2="21" y2="6" stroke={stroke} strokeWidth="1.4" />
+          <Line x1="3" y1="9" x2="21" y2="9" stroke={stroke} strokeWidth="1.4" />
+          <Line x1="3" y1="12" x2="21" y2="12" stroke={stroke} strokeWidth="1.4" />
+          <Line x1="3" y1="15" x2="21" y2="15" stroke={stroke} strokeWidth="1.4" />
+          <Line x1="3" y1="18" x2="21" y2="18" stroke={stroke} strokeWidth="1.4" />
         </>
       )}
     </Svg>

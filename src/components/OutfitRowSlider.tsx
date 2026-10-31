@@ -8,9 +8,10 @@ import {
   NativeScrollEvent,
   Image,
 } from 'react-native';
-import { ClothingItem } from '../types/wardrobe';
+import { ClothingItem, isSockItem, isIntimatesItem } from '../types/wardrobe';
 import StatusBadge from './StatusBadge';
 import PressableScale from './PressableScale';
+import IntimatesMockupBadge from './IntimatesMockupBadge';
 import { Colors, Radii, Spacing } from '../theme/theme';
 import { CategoryIcon, Lock, Unlock } from './AppIcons';
 
@@ -134,7 +135,14 @@ export default function OutfitRowSlider({
                 {/* Garment Image / Category Vector Icon Preview */}
                 <View style={styles.thumbBox}>
                   <View style={styles.thumbInner}>
-                    {item.imageUrl ? (
+                    {isIntimatesItem(item) ? (
+                      <IntimatesMockupBadge
+                        item={item}
+                        variant="thumb"
+                        size={60}
+                        style={{ width: '100%', height: '100%', borderWidth: 0 }}
+                      />
+                    ) : item.imageUrl ? (
                       <Image
                         source={{ uri: item.imageUrl }}
                         style={styles.thumbImage}
@@ -142,7 +150,7 @@ export default function OutfitRowSlider({
                       />
                     ) : (
                       <CategoryIcon
-                        category={item.category}
+                        category={isSockItem(item) ? 'socks' : item.category}
                         size={28}
                         color={Colors.textSecondary}
                         strokeWidth={1.8}
@@ -168,7 +176,7 @@ export default function OutfitRowSlider({
                     </Text>
                   )}
                   <View style={styles.statusRow}>
-                    <StatusBadge status={item.status} size="sm" />
+                    <StatusBadge status={item.status} wearCount={item.wearCount} size="sm" />
                     {item.isUniformWhiteTee && (
                       <View style={styles.uniformBadge}>
                         <Text style={styles.uniformText}>UNIFORM</Text>

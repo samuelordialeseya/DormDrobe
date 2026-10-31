@@ -14,6 +14,9 @@ interface PressableScaleProps {
   scaleTo?: number;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  accessibilityRole?: any;
+  accessibilityLabel?: string;
+  hitSlop?: any;
 }
 
 /**
@@ -26,6 +29,9 @@ export default function PressableScale({
   scaleTo = 0.96,
   style,
   disabled = false,
+  accessibilityRole,
+  accessibilityLabel,
+  hitSlop,
 }: PressableScaleProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -53,6 +59,9 @@ export default function PressableScale({
       onPressIn={disabled ? undefined : handlePressIn}
       onPressOut={disabled ? undefined : handlePressOut}
       disabled={disabled}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={hitSlop}
     >
       <Animated.View style={[{ transform: [{ scale }] }, style]}>
         {children}

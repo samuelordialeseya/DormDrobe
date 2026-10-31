@@ -5,6 +5,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { Smartphone, Monitor } from './AppIcons';
 import { Colors } from '../theme/theme';
@@ -31,7 +32,7 @@ export default function DeviceFrame({ children }: Props) {
   const IPHONE_WIDTH = 390;
   const IPHONE_HEIGHT = 844;
   // Fit nicely inside browser height with clearance for top switcher
-  const frameHeight = Math.min(IPHONE_HEIGHT, windowHeight - 64);
+  const frameHeight = Math.min(IPHONE_HEIGHT, Math.max(480, windowHeight - 72));
 
   return (
     <View style={styles.desktopCanvas}>
@@ -142,14 +143,38 @@ export default function DeviceFrame({ children }: Props) {
 const styles = StyleSheet.create({
   nativeContainer: {
     flex: 1,
+    height: '100%' as any,
     backgroundColor: Colors.bgBase,
+    ...Platform.select({
+      web: {
+        height: '100dvh' as any,
+        maxHeight: '100dvh' as any,
+        overflow: 'hidden',
+        overscrollBehavior: 'none',
+      },
+      default: {},
+    }),
   },
   desktopCanvas: {
     flex: 1,
+    height: '100vh' as any,
+    maxHeight: '100vh' as any,
+    overflow: 'hidden',
     backgroundColor: Colors.bgDeep,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
+    ...Platform.select({
+      web: {
+        position: 'fixed' as any,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overscrollBehavior: 'none',
+      },
+      default: {},
+    }),
   },
   desktopHeader: {
     marginBottom: 10,
@@ -306,7 +331,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appContentIPhone: {
-    paddingTop: 8,
+    paddingTop: 44,
   },
   homeIndicatorWrapper: {
     position: 'absolute',

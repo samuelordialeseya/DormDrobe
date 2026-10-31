@@ -10,6 +10,7 @@ create table if not exists public.clothing_items (
   brand text,
   location text not null check (location in ('calamba_home', 'batangas_dorm', 'in_transit_bag')),
   status text not null check (status in ('clean', 'worn', 'in_laundry', 'drying', 'misplaced')),
+  wear_count integer not null default 0,
   image_url text,
   is_uniform_white_tee boolean default false,
   last_worn_at timestamptz,
@@ -18,6 +19,8 @@ create table if not exists public.clothing_items (
 );
 
 -- 2. Enable Row Level Security (RLS)
+-- (Existing projects created before wear tracking: run this once to add the column)
+alter table public.clothing_items add column if not exists wear_count integer not null default 0;
 alter table public.clothing_items enable row level security;
 
 -- 3. Create access policy for anonymous client access

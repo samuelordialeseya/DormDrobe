@@ -38,7 +38,7 @@ export const Colors = {
   // Semantic Status Tints (Botanical & Mineral Cleanliness Spectrum)
   statusClean: '#16A34A',     // Laurel Forest Green (Clean & Ready)
   statusWorn: '#D97706',      // Golden Ochre (Worn / Wearable)
-  statusLaundry: '#EA580C',   // Persimmon Terracotta (In Laundry)
+  statusLaundry: '#0284C7',   // Fresh Cerulean Wash Blue (In Laundry - crisp & distinct from worn)
   statusDrying: '#2563EB',    // Cobalt Air (Drying)
   statusMisplaced: '#DC2626', // Brick Crimson (Misplaced)
 

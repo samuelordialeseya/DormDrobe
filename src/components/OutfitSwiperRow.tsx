@@ -10,10 +10,18 @@ import {
   useWindowDimensions,
   LayoutChangeEvent,
 } from 'react-native';
-import { ClothingItem, STATUS_COLORS, STATUS_LABELS } from '../types/wardrobe';
+import {
+  Category,
+  ClothingItem,
+  STATUS_COLORS,
+  formatStatusLabel,
+  isSockItem,
+  isIntimatesItem,
+} from '../types/wardrobe';
 import { Colors, Radii } from '../theme/theme';
 import { CategoryIcon, PushPin } from './AppIcons';
 import PressableScale from './PressableScale';
+import IntimatesMockupBadge from './IntimatesMockupBadge';
 import { useWardrobe } from '../context/WardrobeContext';
 
 interface OutfitSwiperRowProps {
@@ -24,7 +32,8 @@ interface OutfitSwiperRowProps {
   onToggleLock: () => void;
   rowHeight?: number;
   scrollRef?: any;
-  category: 'tops' | 'bottoms' | 'footwear' | 'accessories' | 'outerwear';
+  category: Category | 'socks';
+  emptyLabel?: string;
 }
 
 export default function OutfitSwiperRow({
@@ -36,6 +45,7 @@ export default function OutfitSwiperRow({
   rowHeight = 160,
   scrollRef,
   category,
+  emptyLabel,
 }: OutfitSwiperRowProps) {
   const { width } = useWindowDimensions();
   const { getLocationLabel } = useWardrobe();
@@ -78,7 +88,7 @@ export default function OutfitSwiperRow({
     return (
       <View style={[styles.emptyContainer, { height: rowHeight }]}>
         <CategoryIcon category={category} size={30} color={Colors.textTertiary} />
-        <Text style={styles.emptyCategoryText}>No {category} here</Text>
+        <Text style={styles.emptyCategoryText}>{emptyLabel ?? `No ${category} here`}</Text>
       </View>
     );
   }
@@ -170,7 +180,14 @@ export default function OutfitSwiperRow({
                 },
               ]}
             >
-              {imageUri ? (
+              {isIntimatesItem(item) ? (
+                <IntimatesMockupBadge
+                  item={item}
+                  variant="card"
+                  width={ITEM_WIDTH * 0.94}
+                  height={Math.max(rowHeight * 0.88, 76)}
+                />
+              ) : imageUri ? (
                 <Image
                   source={{ uri: imageUri }}
                   style={[
@@ -184,7 +201,7 @@ export default function OutfitSwiperRow({
                 />
               ) : (
                 <View style={styles.fallbackIconWrap}>
-                  <CategoryIcon category={item.category} size={44} color="#C7C7CC" />
+                  <CategoryIcon category={isSockItem(item) ? 'socks' : item.category} size={44} color="#C7C7CC" />
                 </View>
               )}
             </PressableScale>
@@ -230,7 +247,7 @@ export default function OutfitSwiperRow({
                   { color: STATUS_COLORS[activeItem.status] ?? Colors.textTertiary },
                 ]}
               >
-                • {STATUS_LABELS[activeItem.status]}
+                • {formatStatusLabel(activeItem.status, activeItem.wearCount)}
               </Text>
             )}
           </View>

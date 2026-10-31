@@ -46,7 +46,7 @@ const STATUSES: Status[] = ['clean', 'worn', 'in_laundry'];
 const LOC_SHORT: Record<Location, string> = {
   batangas_dorm: 'Batangas Dorm',
   calamba_home: 'Calamba Home',
-  in_transit_bag: 'In Bag',
+  in_transit_bag: 'Transit Bag',
 };
 
 export default function AddItemScreen() {
@@ -161,10 +161,21 @@ export default function AddItemScreen() {
     }
   };
 
-  const handleClose = () => {
-    navigation.setParams({ editItem: undefined });
+  const navigateBack = () => {
+    const returnTarget = route.params?.returnTo;
+    navigation.setParams({ editItem: undefined, returnTo: undefined });
     resetForm();
-    navigation.goBack();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (returnTarget) {
+      navigation.navigate(returnTarget);
+    } else {
+      navigation.navigate('Closet');
+    }
+  };
+
+  const handleClose = () => {
+    navigateBack();
   };
 
   const handleSave = () => {
@@ -181,6 +192,14 @@ export default function AddItemScreen() {
 
     if (editItem) {
       updateItem(editItem.id, {
+        wearCount:
+          status === 'clean'
+            ? 0
+            : status === 'worn'
+            ? editItem.status === 'worn'
+              ? editItem.wearCount ?? 1
+              : 1
+            : editItem.wearCount ?? 0,
         name: name.trim(),
         category,
         color: color.trim(),
@@ -217,6 +236,7 @@ export default function AddItemScreen() {
           imageUrl: finalImage,
           isUniformWhiteTee: isUniform,
           lastWornAt: null,
+          wearCount: status === 'worn' ? 1 : 0,
           notes: notes.trim(),
           createdAt: nowIso,
         });
@@ -235,15 +255,14 @@ export default function AddItemScreen() {
         imageUrl: finalImage,
         isUniformWhiteTee: isUniform,
         lastWornAt: null,
+        wearCount: status === 'worn' ? 1 : 0,
         notes: notes.trim(),
         createdAt: new Date().toISOString(),
       });
       showToast({ message: `Added ${name.trim()} to wardrobe`, type: 'success' });
     }
 
-    navigation.setParams({ editItem: undefined });
-    resetForm();
-    navigation.goBack();
+    navigateBack();
   };
 
   const activeImagePreview = isCutoutActive && cutoutUri ? cutoutUri : originalUri;
@@ -552,7 +571,7 @@ export default function AddItemScreen() {
                           color={active ? '#FFFFFF' : Colors.textTertiary}
                           strokeWidth={2}
                         />
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
                           {CATEGORY_LABELS[cat]}
                         </Text>
                       </View>
@@ -568,6 +587,11 @@ export default function AddItemScreen() {
               <View style={styles.chipRow}>
                 {LOCATIONS.map((loc) => {
                   const active = loc === location;
+                  const rawLabel = getLocationLabel(loc);
+                  const displayLabel =
+                    loc === 'in_transit_bag' && (rawLabel === 'In-Transit Bag' || rawLabel === 'in_transit_bag')
+                      ? 'Transit Bag'
+                      : rawLabel;
                   return (
                     <PressableScale
                       key={loc}
@@ -581,8 +605,8 @@ export default function AddItemScreen() {
                           color={active ? '#FFFFFF' : Colors.textTertiary}
                           strokeWidth={2}
                         />
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {getLocationLabel(loc)}
+                        <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                          {displayLabel}
                         </Text>
                       </View>
                     </PressableScale>
@@ -703,14 +727,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgBase },
   safe: { flex: 1 },
   scroll: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 24,
     paddingBottom: 130,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Spacing.sm,
+    paddingTop: 16,
     marginBottom: Spacing.md,
   },
   title: {
